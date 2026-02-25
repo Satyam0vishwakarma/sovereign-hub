@@ -31,7 +31,7 @@
             position: absolute; width: 600px; height: 600px;
             background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
             filter: blur(80px); z-index: -1; 
-            
+            will-change: transform;
             animation: pulse 10s infinite alternate ease-in-out;
         }
         @keyframes pulse { from { transform: scale(1); opacity: 0.3; } to { transform: scale(1.2); opacity: 0.6; } }
@@ -138,7 +138,7 @@
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 const { data: prof } = await supabase.from('users').select('role').eq('id', session.user.id).maybeSingle();
-                window.location.replace("dashboard.html");
+                window.location.replace(prof?.role === 'admin' ? 'admin.html' : 'dashboard.html');
             }
         }
         checkHandshake();
@@ -174,7 +174,7 @@
             } else {
                 showSovereignStatus('success', 'Clearance Confirmed', 'Decrypting terminal...');
                 const { data: prof } = await supabase.from('users').select('role').eq('id', data.user.id).single();
-                setTimeout(() => { window.location.href = "dashboard.html"; }, 1500);
+                setTimeout(() => window.location.replace(prof?.role === 'admin' ? 'admin.html' : 'dashboard.html'), 1500);
             }
         });
 
@@ -200,8 +200,4 @@
         });
     </script>
 </body>
-</html><script>
-window.onerror = function(msg, src, line) {
-    document.body.innerHTML += '<div style="position:fixed;bottom:0;left:0;right:0;background:red;color:white;padding:20px;font-size:14px;z-index:999999">' + msg + ' | Line: ' + line + '</div>';
-}
-</script>
+</html>
