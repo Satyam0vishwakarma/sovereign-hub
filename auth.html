@@ -138,7 +138,7 @@
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 const { data: prof } = await supabase.from('users').select('role').eq('id', session.user.id).maybeSingle();
-                window.location.replace(prof?.role === 'admin' ? 'admin.html' : 'dashboard.html');
+                window.location.replace("dashboard.html");
             }
         }
         checkHandshake();
@@ -174,7 +174,7 @@
             } else {
                 showSovereignStatus('success', 'Clearance Confirmed', 'Decrypting terminal...');
                 const { data: prof } = await supabase.from('users').select('role').eq('id', data.user.id).single();
-                setTimeout(() => window.location.replace(prof?.role === 'admin' ? 'admin.html' : 'dashboard.html'), 1500);
+                setTimeout(() => window.location.replace("dashboard.html"), 1500);
             }
         });
 
