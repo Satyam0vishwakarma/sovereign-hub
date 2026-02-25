@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sovereign Oversight | Central Command</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <style>
+        /* ── FIXED UPPER STACK ── */
+        .trinity-nav {
+            position: fixed; top: 0; left: 0; width: 100%; height: 64px;
+            background: #020617; z-index: 10000;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 40px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+        }
+        .terminal-strip {
+            position: fixed; top: 64px; left: 0; width: 100%; height: 32px;
+            background: #020617; border-bottom: 1px solid var(--shark-indigo);
+            z-index: 9999; display: flex; align-items: center; padding: 0 40px; gap: 16px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; color: #4ade80;
+        }
+        .admin-header {
+            padding: 148px 40px 120px !important;
+            border-radius: 0 0 60px 60px !important;
+            background: var(--shark-obsidian) !important;
+            background-image: radial-gradient(circle at 100% 0%, rgba(99,102,241,0.18) 0%, transparent 40%) !important;
+        }
+        .stats-grid { margin-top: -80px !important; position: relative; z-index: 100; }
+
+        /* ── TAB PANELS ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; animation: fadeInUp .35s ease; }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+        /* ── DATA ROWS ── */
+        .data-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 20px; border-radius: 18px; margin-bottom: 10px;
+            background: #f8fafc; border: 1px solid var(--shark-border);
+            transition: .2s; cursor: default;
+        }
+        .data-row:hover { border-color: var(--shark-indigo); background: white; box-shadow: 0 4px 20px rgba(99,102,241,.07); }
+        .data-row-left { flex: 1; }
+        .data-row-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(2,6,23,0.92);
+            backdrop-filter: blur(14px); z-index: 20000;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: white; width: 100%; max-width: 680px;
+            border-radius: 36px; padding: 3rem; position: relative;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.5); max-height: 90vh; overflow-y: auto;
+        }
+        .modal-close {
+            position: absolute; top: 24px; right: 24px; cursor: pointer;
+            font-weight: 900; color: #94a3b8; font-size: 0.65rem;
+            border: 1px solid #e2e8f0; padding: 6px 14px; border-radius: 50px;
+            transition: .2s; background: white;
+        }
+        .modal-close:hover { border-color: #ef4444; color: #ef4444; }
+
+        /* ── UTILITY ── */
+        #liveClock { font-family: 'JetBrains Mono'; color: #4ade80; font-weight: 900; font-size: 1rem; }
+        .id-badge { font-family: 'JetBrains Mono'; font-size: 0.58rem; background: #f1f5f9; color: #64748b; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 3px; word-break: break-all; }
+        .btn-core { padding: 10px 18px; border-radius: 12px; font-weight: 800; font-size: 0.68rem; text-transform: uppercase; cursor: pointer; border: none; transition: .2s; display: inline-flex; align-items: center; gap: 6px; letter-spacing: .5px; }
+        .btn-indigo  { background: var(--shark-indigo); color: white; }
+        .btn-indigo:hover { background: #4f46e5; }
+        .btn-emerald { background: var(--shark-emerald); color: white; }
+        .btn-emerald:hover { background: #059669; }
+        .btn-red     { background: #ef4444; color: white; }
+        .btn-red:hover { background: #dc2626; }
+        .btn-amber   { background: #f59e0b; color: white; }
+        .btn-amber:hover { background: #d97706; }
+        .btn-slate   { background: white; border: 1.5px solid var(--shark-border); color: var(--shark-obsidian); }
+        .btn-slate:hover { border-color: #94a3b8; }
+
+        .status-pill { padding: 4px 12px; border-radius: 50px; font-size: 0.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: .5px; }
+        .pill-pending   { background: #fef9c3; color: #854d0e; }
+        .pill-active    { background: #dcfce7; color: #15803d; }
+        .pill-resolved  { background: #f1f5f9; color: #475569; }
+        .pill-suspended { background: #fee2e2; color: #b91c1c; }
+        .pill-admin     { background: #ede9fe; color: #5b21b6; }
+        .pill-investor  { background: #dbeafe; color: #1d4ed8; }
+        .pill-entrepreneur { background: #dcfce7; color: #065f46; }
+
+        .section-label { font-size: 0.6rem; font-weight: 900; color: var(--shark-indigo); text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 10px; }
+        .info-block { background: #f8fafc; padding: 16px 20px; border-radius: 16px; border: 1px solid var(--shark-border); margin-bottom: 16px; font-size: 0.9rem; line-height: 1.6; }
+
+        .analytics-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+        .analytics-node { background: #f8fafc; padding: 20px; border-radius: 20px; border: 1px solid var(--shark-border); text-align: center; }
+        .analytics-val { font-size: 1.8rem; font-weight: 900; color: var(--shark-obsidian); letter-spacing: -1px; }
+        .analytics-label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; display: block; }
+
+        .broadcast-box { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 20px; padding: 20px; margin-bottom: 20px; }
+
+        .log-row { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; font-size: 0.82rem; display: flex; justify-content: space-between; align-items: center; }
+        .log-row:last-child { border-bottom: none; }
+
+        .spinner { border: 3px solid #e2e8f0; border-top: 3px solid var(--shark-indigo); border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; margin: 2rem auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        textarea { width: 100%; padding: 16px; border-radius: 16px; border: 1.5px solid var(--shark-border); font-family: inherit; font-size: .9rem; resize: vertical; margin-bottom: 12px; }
+        textarea:focus { outline: none; border-color: var(--shark-indigo); }
+        select.admin-select { padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--shark-border); font-weight: 700; font-size: .8rem; cursor: pointer; background: white; }
+        select.admin-select:focus { outline: none; border-color: var(--shark-indigo); }
+    </style>
+</head>
+<body>
+
+    <!-- TRINITY NAV -->
+    <nav class="trinity-nav">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <a href="dashboard.html" class="btn-core btn-slate" style="font-size:0.6rem;">← EXIT_COMMAND</a>
+            <span style="color:white;font-weight:900;font-size:0.7rem;letter-spacing:6px;opacity:.4;">SOVEREIGN_OVERSIGHT</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:20px;">
+            <span id="adminNameBadge" style="color:#a5b4fc;font-size:.7rem;font-weight:800;"></span>
+            <div id="liveClock">00:00:00</div>
+        </div>
+    </nav>
+
+    <!-- ACTIVITY STRIP -->
+    <div class="terminal-strip">
+        <span style="color:var(--shark-indigo);font-weight:900;border-right:1px solid #1e293b;padding-right:14px;margin-right:2px;">NEURAL_FEED</span>
+        <span id="latestLog">[SYSTEM] Initializing infrastructure... Control session active.</span>
+    </div>
+
+    <!-- HEADER -->
+    <header class="admin-header">
+        <div class="header-inner" style="display:flex;justify-content:space-between;align-items:flex-end;">
+            <div>
+                <span style="font-size:.75rem;font-weight:900;letter-spacing:5px;color:var(--shark-indigo);text-transform:uppercase;">Global Command Terminal v9.0</span>
+                <h1 class="welcome-text" style="color:white;font-size:4.5rem;letter-spacing:-5px;margin:8px 0;">COMMAND</h1>
+                <div style="display:flex;gap:12px;margin-top:20px;">
+                    <button onclick="loadAdminData()" class="btn-core btn-emerald">⟳ Manual Sync</button>
+                    <button onclick="handleAdminLogout()" class="btn-core" style="background:#ef4444;color:white;">⏻ Kill Session</button>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div id="lastSync" style="font-size:.6rem;color:#475569;font-family:'JetBrains Mono';margin-bottom:6px;">LAST_SYNC: —</div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;" id="headerQuickStats">
+                    <div style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);padding:10px 18px;border-radius:14px;text-align:center;">
+                        <div style="font-size:1.4rem;font-weight:900;color:#a5b4fc;" id="hqUsers">—</div>
+                        <div style="font-size:.55rem;color:#64748b;font-weight:800;text-transform:uppercase;">Entities</div>
+                    </div>
+                    <div style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);padding:10px 18px;border-radius:14px;text-align:center;">
+                        <div style="font-size:1.4rem;font-weight:900;color:#6ee7b7;" id="hqDeals">—</div>
+                        <div style="font-size:.55rem;color:#64748b;font-weight:800;text-transform:uppercase;">Deals</div>
+                    </div>
+                    <div style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);padding:10px 18px;border-radius:14px;text-align:center;">
+                        <div style="font-size:1.4rem;font-weight:900;color:#fca5a5;" id="hqTickets">—</div>
+                        <div style="font-size:.55rem;color:#64748b;font-weight:800;text-transform:uppercase;">Open Tickets</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid" style="padding:0 40px;">
+        <div class="stat-card"><div class="stat-label">Total Entities</div><div class="stat-value" id="statUsers">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pending Audits</div><div class="stat-value" id="statPending" style="color:#f59e0b;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Capital Deployed</div><div class="stat-value" id="statCapital" style="color:var(--shark-emerald);font-size:1.4rem;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Open Tickets</div><div class="stat-value" id="statTickets" style="color:#ef4444;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Active Deals</div><div class="stat-value" id="statDeals">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Proposals</div><div class="stat-value" id="statProposals">—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Offers</div><div class="stat-value" id="statOffers">—</div></div>
+        <div class="stat-card"><div class="stat-label">Chat Rooms</div><div class="stat-value" id="statChats">—</div></div>
+    </div>
+
+    <main class="admin-content" style="padding-top:3rem;">
+
+        <!-- TABS -->
+        <div class="tabs" style="margin-bottom:2rem;">
+            <button class="tab active"  onclick="switchTab('users',     this)">👥 Entities</button>
+            <button class="tab"         onclick="switchTab('proposals', this)">📁 Proposals</button>
+            <button class="tab"         onclick="switchTab('offers',    this)">💰 Offers</button>
+            <button class="tab"         onclick="switchTab('deals',     this)">🤝 Deals</button>
+            <button class="tab"         onclick="switchTab('txns',      this)">🧾 Transactions</button>
+            <button class="tab"         onclick="switchTab('support',   this)">🎟 Support</button>
+            <button class="tab"         onclick="switchTab('comms',     this)">💬 Comms</button>
+            <button class="tab"         onclick="switchTab('analytics', this)">📊 Analytics</button>
+            <button class="tab"         onclick="switchTab('broadcast', this)">📡 Broadcast</button>
+        </div>
+
+        <!-- ── ENTITIES TAB ── -->
+        <div id="users-tab" class="tab-panel active">
+            <div class="management-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                    <h2 style="font-weight:900;letter-spacing:-1px;">Entity Registry</h2>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <input id="userSearch" type="text" placeholder="Search by name or email..." oninput="filterUsers()"
+                            style="padding:10px 16px;border-radius:12px;border:1.5px solid var(--shark-border);font-weight:600;font-size:.8rem;width:220px;">
+                        <select class="admin-select" id="roleFilter" onchange="filterUsers()">
+                            <option value="">All Roles</option>
+                            <option value="entrepreneur">Entrepreneur</option>
+                            <option value="investor">Investor</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <select class="admin-select" id="verifyFilter" onchange="filterUsers()">
+                            <option value="">All Status</option>
+                            <option value="true">Verified</option>
+                            <option value="false">Unverified</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="usersContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── PROPOSALS TAB ── -->
+        <div id="proposals-tab" class="tab-panel">
+            <div class="management-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                    <h2 style="font-weight:900;letter-spacing:-1px;">Proposal Audit Queue</h2>
+                    <div style="display:flex;gap:10px;">
+                        <select class="admin-select" id="propStatusFilter" onchange="filterProposals()">
+                            <option value="">All</option>
+                            <option value="false">Pending Verification</option>
+                            <option value="true">Verified</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="proposalsContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── OFFERS TAB ── -->
+        <div id="offers-tab" class="tab-panel">
+            <div class="management-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                    <h2 style="font-weight:900;letter-spacing:-1px;">Platform Offer Monitor</h2>
+                    <select class="admin-select" id="offerStatusFilter" onchange="filterOffers()">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+                <div id="offersContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── DEALS TAB ── -->
+        <div id="deals-tab" class="tab-panel">
+            <div class="management-card">
+                <h2 style="font-weight:900;letter-spacing:-1px;margin-bottom:24px;">Deal Registry</h2>
+                <div id="dealsContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── TRANSACTIONS TAB ── -->
+        <div id="txns-tab" class="tab-panel">
+            <div class="management-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                    <h2 style="font-weight:900;letter-spacing:-1px;">Funding Transaction Ledger</h2>
+                    <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:10px 18px;border-radius:14px;">
+                        <span style="font-size:.6rem;font-weight:800;color:#064e3b;text-transform:uppercase;">Total Volume</span>
+                        <div style="font-size:1.4rem;font-weight:900;color:#065f46;" id="txnTotal">₹0</div>
+                    </div>
+                </div>
+                <div id="txnsContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── SUPPORT TAB ── -->
+        <div id="support-tab" class="tab-panel">
+            <div class="management-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+                    <h2 style="font-weight:900;letter-spacing:-1px;">Support Desk</h2>
+                    <select class="admin-select" id="supportFilter" onchange="filterSupport()">
+                        <option value="">All Tickets</option>
+                        <option value="pending">Pending</option>
+                        <option value="under_review">Under Review</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                </div>
+                <div id="supportContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── COMMS TAB ── -->
+        <div id="comms-tab" class="tab-panel">
+            <div class="management-card">
+                <h2 style="font-weight:900;letter-spacing:-1px;margin-bottom:24px;">Neural Communication Channels</h2>
+                <div id="commsContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── ANALYTICS TAB ── -->
+        <div id="analytics-tab" class="tab-panel">
+            <div class="management-card">
+                <h2 style="font-weight:900;letter-spacing:-1px;margin-bottom:24px;">Platform Analytics</h2>
+                <div id="analyticsContainer"><div class="spinner"></div></div>
+            </div>
+        </div>
+
+        <!-- ── BROADCAST TAB ── -->
+        <div id="broadcast-tab" class="tab-panel">
+            <div class="management-card">
+                <h2 style="font-weight:900;letter-spacing:-1px;margin-bottom:8px;">Broadcast Notification</h2>
+                <p style="color:#64748b;font-size:.85rem;margin-bottom:24px;">Send a platform-wide alert to all users or a specific role group.</p>
+                <div class="broadcast-box">
+                    <div style="margin-bottom:14px;">
+                        <label class="section-label">Target Audience</label>
+                        <select class="admin-select" id="broadcastTarget" style="width:100%;">
+                            <option value="all">All Users</option>
+                            <option value="entrepreneur">Entrepreneurs Only</option>
+                            <option value="investor">Investors Only</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label class="section-label">Notification Title</label>
+                        <input id="broadcastTitle" type="text" placeholder="e.g. Platform Maintenance Scheduled"
+                            style="width:100%;padding:12px 16px;border-radius:14px;border:1.5px solid var(--shark-border);font-weight:700;font-size:.85rem;">
+                    </div>
+                    <div style="margin-bottom:14px;">
+                        <label class="section-label">Message</label>
+                        <textarea id="broadcastMsg" rows="4" placeholder="Write your directive to the syndicate..."></textarea>
+                    </div>
+                    <button onclick="sendBroadcast()" class="btn-core btn-indigo" style="width:100%;padding:16px;font-size:.8rem;">
+                        📡 Transmit to Syndicate
+                    </button>
+                    <div id="broadcastStatus" style="display:none;margin-top:12px;padding:12px 16px;border-radius:12px;font-weight:700;font-size:.8rem;"></div>
+                </div>
+                <h3 style="font-weight:900;margin-bottom:14px;font-size:1rem;">Recent Broadcasts</h3>
+                <div id="broadcastHistory"><div class="spinner"></div></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ── USER DETAIL MODAL ── -->
+    <div id="userModal" class="modal-overlay" onclick="closeModal('userModal')">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-close" onclick="closeModal('userModal')">CLOSE ✕</div>
+            <span class="section-label">Entity Profile</span>
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+                <div id="umAvatar" style="width:64px;height:64px;border-radius:50%;background:var(--shark-obsidian);color:white;display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;flex-shrink:0;"></div>
+                <div>
+                    <h2 id="umName" style="font-weight:900;font-size:1.6rem;letter-spacing:-.5px;"></h2>
+                    <div id="umEmail" style="color:#64748b;font-size:.85rem;"></div>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+                <div class="info-block">
+                    <div class="section-label">Role</div>
+                    <div id="umRole" style="font-weight:800;"></div>
+                </div>
+                <div class="info-block">
+                    <div class="section-label">Status</div>
+                    <div id="umStatus" style="font-weight:800;"></div>
+                </div>
+                <div class="info-block">
+                    <div class="section-label">Joined</div>
+                    <div id="umJoined" style="font-weight:700;font-size:.85rem;"></div>
+                </div>
+                <div class="info-block">
+                    <div class="section-label">Location</div>
+                    <div id="umLocation" style="font-weight:700;font-size:.85rem;"></div>
+                </div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;">
+                <div class="section-label">User ID</div>
+                <code style="font-family:'JetBrains Mono';font-size:.7rem;word-break:break-all;" id="umId"></code>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <div class="section-label">Change Role</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="changeRole(currentModalUserId,'entrepreneur')" class="btn-core" style="background:#dcfce7;color:#065f46;">→ Entrepreneur</button>
+                    <button onclick="changeRole(currentModalUserId,'investor')"     class="btn-core" style="background:#dbeafe;color:#1d4ed8;">→ Investor</button>
+                    <button onclick="changeRole(currentModalUserId,'admin')"        class="btn-core" style="background:#ede9fe;color:#5b21b6;">→ Admin</button>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="toggleVerify(currentModalUserId)"  class="btn-core btn-emerald" id="umVerifyBtn">✓ Verify</button>
+                <button onclick="toggleSuspend(currentModalUserId)" class="btn-core btn-amber"   id="umSuspendBtn">⏸ Suspend</button>
+                <button onclick="initiateChat(currentModalUserId)"  class="btn-core btn-indigo">💬 Message User</button>
+                <button onclick="purgeUser(currentModalUserId)"     class="btn-core btn-red">🗑 Purge Entity</button>
+            </div>
+            <div id="umActionStatus" style="display:none;margin-top:14px;padding:12px 16px;border-radius:12px;font-weight:700;font-size:.8rem;"></div>
+        </div>
+    </div>
+
+    <!-- ── PROPOSAL DETAIL MODAL ── -->
+    <div id="propModal" class="modal-overlay" onclick="closeModal('propModal')">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-close" onclick="closeModal('propModal')">CLOSE ✕</div>
+            <span class="section-label">Proposal Case File</span>
+            <h2 id="pmTitle" style="font-weight:900;font-size:1.8rem;letter-spacing:-1px;margin-bottom:8px;"></h2>
+            <div id="pmMeta" style="color:#64748b;font-size:.85rem;margin-bottom:20px;"></div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+                <div class="info-block" style="text-align:center;">
+                    <div class="section-label">Asking</div>
+                    <div id="pmAmount" style="font-weight:900;font-size:1.2rem;color:var(--shark-indigo);"></div>
+                </div>
+                <div class="info-block" style="text-align:center;">
+                    <div class="section-label">Equity</div>
+                    <div id="pmEquity" style="font-weight:900;font-size:1.2rem;"></div>
+                </div>
+                <div class="info-block" style="text-align:center;">
+                    <div class="section-label">Score</div>
+                    <div id="pmScore" style="font-weight:900;font-size:1.2rem;color:var(--shark-emerald);"></div>
+                </div>
+            </div>
+
+            <div class="info-block" style="margin-bottom:20px;">
+                <div class="section-label">Description</div>
+                <div id="pmDesc" style="font-size:.88rem;line-height:1.7;color:#475569;"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="verifyProposal(currentModalPropId, true)"  class="btn-core btn-emerald">✓ Approve</button>
+                <button onclick="verifyProposal(currentModalPropId, false)" class="btn-core btn-red">✕ Reject</button>
+                <a id="pmViewLink" href="#" target="_blank" class="btn-core btn-slate">↗ Open Case File</a>
+                <button onclick="purgeProposal(currentModalPropId)" class="btn-core" style="background:#fee2e2;color:#b91c1c;">🗑 Purge</button>
+            </div>
+            <div id="pmActionStatus" style="display:none;margin-top:14px;padding:12px 16px;border-radius:12px;font-weight:700;font-size:.8rem;"></div>
+        </div>
+    </div>
+
+    <!-- ── SUPPORT TICKET MODAL ── -->
+    <div id="supportModal" class="modal-overlay" onclick="closeModal('supportModal')">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-close" onclick="closeModal('supportModal')">CLOSE ✕</div>
+            <span class="section-label">Inquiry Case File</span>
+            <h2 id="smSubject" style="font-weight:900;font-size:1.8rem;letter-spacing:-1px;margin:8px 0;"></h2>
+            <div id="smUser" style="color:var(--shark-indigo);font-weight:800;margin-bottom:20px;"></div>
+
+            <div class="section-label">User Transmission</div>
+            <div class="info-block" id="smMsg"></div>
+
+            <div class="section-label">Admin Directive</div>
+            <div id="smExistingReply" style="display:none;margin-bottom:12px;">
+                <div class="info-block" style="background:#f0fdf4;border-color:#bbf7d0;" id="smExistingReplyText"></div>
+            </div>
+            <textarea id="smReply" rows="4" placeholder="Type your directive to the user..."></textarea>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <button onclick="submitDirective()" class="btn-core btn-emerald" style="flex:1;">📤 Transmit & Resolve</button>
+                <button onclick="submitDirectiveOnly()" class="btn-core btn-indigo">💾 Save Draft</button>
+                <button onclick="initiateChat(currentTicket?.user_id)" class="btn-core btn-slate">💬 Message User</button>
+            </div>
+            <div id="smStatus" style="display:none;margin-top:14px;padding:12px 16px;border-radius:12px;font-weight:700;font-size:.8rem;"></div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script>
+        // ============================================================
+        // STATE
+        // ============================================================
+        let adminId        = null;
+        let allUsers       = [];
+        let allProposals   = [];
+        let allOffers      = [];
+        let allDeals       = [];
+        let allTxns        = [];
+        let allTickets     = [];
+        let allRooms       = [];
+        let currentModalUserId = null;
+        let currentModalPropId = null;
+        let currentTicket  = null;
+
+        // ============================================================
+        // BOOT
+        // ============================================================
+        setInterval(() => {
+            document.getElementById('liveClock').textContent =
+                new Date().toLocaleTimeString('en-US', { hour12: false });
+        }, 1000);
+
+        function sysLog(msg) {
+            const el = document.getElementById('latestLog');
+            if (el) el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            console.log('[Admin]', msg);
+        }
+
+        async function init() {
+            console.log('[Admin] init → starting auth check...');
+            try {
+                const { data: { user }, error: authErr } = await supabase.auth.getUser();
+                if (authErr) { console.error('[Admin] auth error:', authErr); window.location.replace('auth.html'); return; }
+                if (!user)   { console.warn('[Admin] no session'); window.location.replace('auth.html'); return; }
+
+                adminId = user.id;
+                console.log('[Admin] authenticated:', adminId);
+
+                // Role guard
+                const { data: profile, error: profErr } = await supabase
+                    .from('users').select('role, full_name').eq('id', adminId).maybeSingle();
+
+                if (profErr) { console.error('[Admin] profile fetch error:', profErr); window.location.replace('auth.html'); return; }
+                if (!profile) { console.error('[Admin] no profile found for:', adminId); window.location.replace('auth.html'); return; }
+                if (profile.role !== 'admin') {
+                    console.warn('[Admin] access denied — role:', profile.role);
+                    window.location.replace('dashboard.html');
+                    return;
+                }
+
+                console.log('[Admin] access granted for:', profile.full_name);
+                const badge = document.getElementById('adminNameBadge');
+                if (badge) badge.textContent = profile.full_name.toUpperCase();
+
+                await loadAdminData();
+            } catch (err) {
+                console.error('[Admin] init CRITICAL ERROR:', err);
+                window.location.replace('auth.html');
+            }
+        }
+
+        // ============================================================
+        // LOAD ALL DATA
+        // ============================================================
+        async function loadAdminData() {
+            sysLog('Syncing all nodes...');
+            console.log('[Admin] loadAdminData → fetching all tables...');
+
+            try {
+                const [uRes, pRes, oRes, dRes, tRes, tickRes, roomRes, txnRes] = await Promise.all([
+                    supabase.from('users').select('*').order('created_at', { ascending: false }),
+                    supabase.from('proposals').select('*, users:user_id(full_name, email)').order('created_at', { ascending: false }),
+                    supabase.from('offers').select('*, proposals(title), investor:investor_id(full_name), entrepreneur:proposals(users:user_id(full_name))').order('created_at', { ascending: false }),
+                    supabase.from('deals').select('*, proposals(title), entrepreneur:entrepreneur_id(full_name), investor:investor_id(full_name)').order('deal_date', { ascending: false }),
+                    supabase.from('funding_logs').select('*, proposals(title, category), investor:investor_id(full_name)').order('transaction_date', { ascending: false }),
+                    supabase.from('support_inquiries').select('*, users:user_id(full_name, email)').order('created_at', { ascending: false }),
+                    supabase.from('chat_rooms').select('*, entrepreneur:entrepreneur_id(full_name), investor:investor_id(full_name), proposals(title)').order('updated_at', { ascending: false }),
+                    supabase.from('notifications').select('id, title, created_at, type').eq('type', 'broadcast').order('created_at', { ascending: false }).limit(10)
+                ]);
+
+                // Log any errors per table
+                [
+                    ['users', uRes], ['proposals', pRes], ['offers', oRes], ['deals', dRes],
+                    ['funding_logs', tRes], ['support_inquiries', tickRes], ['chat_rooms', roomRes]
+                ].forEach(([name, res]) => {
+                    if (res.error) console.error(`[Admin] ${name} fetch error:`, res.error);
+                    else console.log(`[Admin] ${name}: ${res.data?.length ?? 0} rows`);
+                });
+
+                allUsers     = uRes.data     || [];
+                allProposals = pRes.data     || [];
+                allOffers    = oRes.data     || [];
+                allDeals     = dRes.data     || [];
+                allTxns      = tRes.data     || [];
+                allTickets   = tickRes.data  || [];
+                allRooms     = roomRes.data  || [];
+
+                // ── Update stat cards ──
+                const totalCapital = allTxns.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+                const openTickets  = allTickets.filter(t => t.status !== 'resolved').length;
+                const pendingAudit = allProposals.filter(p => !p.verified).length;
+
+                const safe = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+                safe('statUsers',     allUsers.length);
+                safe('statPending',   pendingAudit);
+                safe('statCapital',   '₹' + totalCapital.toLocaleString('en-IN'));
+                safe('statTickets',   openTickets);
+                safe('statDeals',     allDeals.length);
+                safe('statProposals', allProposals.length);
+                safe('statOffers',    allOffers.length);
+                safe('statChats',     allRooms.length);
+                safe('txnTotal',      '₹' + totalCapital.toLocaleString('en-IN'));
+
+                // Header quick stats
+                safe('hqUsers',   allUsers.length);
+                safe('hqDeals',   allDeals.length);
+                safe('hqTickets', openTickets);
+
+                // Last sync timestamp
+                const ls = document.getElementById('lastSync');
+                if (ls) ls.textContent = 'LAST_SYNC: ' + new Date().toLocaleTimeString();
+
+                // ── Render all tabs ──
+                renderUsers(allUsers);
+                renderProposals(allProposals);
+                renderOffers(allOffers);
+                renderDeals(allDeals);
+                renderTxns(allTxns);
+                renderSupport(allTickets);
+                renderComms(allRooms);
+                renderAnalytics();
+                renderBroadcastHistory(txnRes.data || []);
+
+                sysLog(`Sync complete — ${allUsers.length} entities, ${allDeals.length} deals, ${openTickets} open tickets`);
+                console.log('[Admin] loadAdminData → all sections rendered ✅');
+            } catch (err) {
+                console.error('[Admin] loadAdminData CRITICAL ERROR:', err);
+                sysLog('ERROR: Sync failed — ' + err.message);
+            }
+        }
+
+        // ============================================================
+        // RENDER: USERS
+        // ============================================================
+        let filteredUsers = [];
+
+        function renderUsers(list) {
+            filteredUsers = list;
+            const container = document.getElementById('usersContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO ENTITIES FOUND</p>'; return; }
+
+            container.innerHTML = list.map(u => {
+                const rolePill  = `<span class="status-pill pill-${u.role}">${u.role}</span>`;
+                const verPill   = u.verified
+                    ? '<span class="status-pill pill-active">Verified</span>'
+                    : '<span class="status-pill pill-pending">Unverified</span>';
+                const suspPill  = !u.is_active
+                    ? '<span class="status-pill pill-suspended" style="margin-left:6px;">Suspended</span>'
+                    : '';
+
+                return `
+                    <div class="data-row" onclick="openUserModal('${u.id}')">
+                        <div class="data-row-left">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div style="width:40px;height:40px;border-radius:50%;background:var(--shark-obsidian);color:white;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0;">
+                                    ${(u.full_name || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <strong style="font-size:.9rem;">${u.full_name || 'Unknown'}</strong>
+                                    <span style="display:block;font-size:.75rem;color:#64748b;">${u.email || '—'}</span>
+                                    <span class="id-badge">${u.id}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="data-row-right">
+                            ${rolePill} ${verPill} ${suspPill}
+                            <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                                ${u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN') : '—'}
+                            </span>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function filterUsers() {
+            const search  = (document.getElementById('userSearch')?.value || '').toLowerCase();
+            const role    = document.getElementById('roleFilter')?.value   || '';
+            const verified = document.getElementById('verifyFilter')?.value || '';
+
+            const filtered = allUsers.filter(u => {
+                const matchSearch  = !search  || (u.full_name||'').toLowerCase().includes(search) || (u.email||'').toLowerCase().includes(search);
+                const matchRole    = !role    || u.role === role;
+                const matchVerify  = !verified || String(u.verified) === verified;
+                return matchSearch && matchRole && matchVerify;
+            });
+            renderUsers(filtered);
+        }
+
+        function openUserModal(userId) {
+            console.log('[Admin] openUserModal →', userId);
+            const u = allUsers.find(x => x.id === userId);
+            if (!u) { console.error('[Admin] user not found:', userId); return; }
+
+            currentModalUserId = userId;
+
+            const safe = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            safe('umName',     u.full_name || '—');
+            safe('umEmail',    u.email || '—');
+            safe('umRole',     u.role?.toUpperCase() || '—');
+            safe('umStatus',   u.verified ? (u.is_active ? 'Active & Verified' : 'Suspended') : 'Pending Verification');
+            safe('umJoined',   u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' }) : '—');
+            safe('umLocation', u.location || 'Not provided');
+            safe('umId',       u.id);
+
+            const av = document.getElementById('umAvatar');
+            if (av) av.textContent = (u.full_name || '?').charAt(0).toUpperCase();
+
+            const vBtn = document.getElementById('umVerifyBtn');
+            if (vBtn) vBtn.textContent = u.verified ? '✕ Unverify' : '✓ Verify';
+
+            const sBtn = document.getElementById('umSuspendBtn');
+            if (sBtn) sBtn.textContent = u.is_active ? '⏸ Suspend' : '▶ Reinstate';
+
+            const statusEl = document.getElementById('umActionStatus');
+            if (statusEl) statusEl.style.display = 'none';
+
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        async function changeRole(userId, newRole) {
+            console.log('[Admin] changeRole →', userId, newRole);
+            if (!confirm(`Change this user's role to ${newRole}?`)) return;
+            try {
+                const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
+                if (error) throw error;
+                showModalStatus('umActionStatus', 'success', `Role updated to ${newRole} ✅`);
+                sysLog(`Role changed → ${userId} is now ${newRole}`);
+                const u = allUsers.find(x => x.id === userId);
+                if (u) u.role = newRole;
+                renderUsers(filteredUsers);
+                console.log('[Admin] changeRole → success');
+            } catch (err) {
+                console.error('[Admin] changeRole error:', err);
+                showModalStatus('umActionStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        async function toggleVerify(userId) {
+            const u = allUsers.find(x => x.id === userId);
+            if (!u) return;
+            const newVal = !u.verified;
+            console.log('[Admin] toggleVerify →', userId, '→', newVal);
+            try {
+                const { error } = await supabase.from('users').update({ verified: newVal }).eq('id', userId);
+                if (error) throw error;
+                u.verified = newVal;
+                showModalStatus('umActionStatus', 'success', newVal ? 'User verified ✅' : 'User unverified');
+                const vBtn = document.getElementById('umVerifyBtn');
+                if (vBtn) vBtn.textContent = newVal ? '✕ Unverify' : '✓ Verify';
+                renderUsers(filteredUsers);
+                sysLog(`Verification toggled → ${userId}: ${newVal}`);
+                console.log('[Admin] toggleVerify → success');
+            } catch (err) {
+                console.error('[Admin] toggleVerify error:', err);
+                showModalStatus('umActionStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        async function toggleSuspend(userId) {
+            const u = allUsers.find(x => x.id === userId);
+            if (!u) return;
+            const newActive = !u.is_active;
+            const action    = newActive ? 'reinstate' : 'suspend';
+            if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} this user?`)) return;
+            console.log('[Admin] toggleSuspend →', userId, '→ is_active:', newActive);
+            try {
+                const { error } = await supabase.from('users').update({ is_active: newActive }).eq('id', userId);
+                if (error) throw error;
+                u.is_active = newActive;
+                showModalStatus('umActionStatus', 'success', newActive ? 'User reinstated ✅' : 'User suspended ⏸');
+                const sBtn = document.getElementById('umSuspendBtn');
+                if (sBtn) sBtn.textContent = newActive ? '⏸ Suspend' : '▶ Reinstate';
+                renderUsers(filteredUsers);
+                sysLog(`Suspension toggled → ${userId}: is_active=${newActive}`);
+                console.log('[Admin] toggleSuspend → success');
+            } catch (err) {
+                console.error('[Admin] toggleSuspend error:', err);
+                showModalStatus('umActionStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        async function purgeUser(userId) {
+            if (!confirm('⚠️ PERMANENTLY delete this user and all their data? This cannot be undone.')) return;
+            console.log('[Admin] purgeUser →', userId);
+            try {
+                const { error } = await supabase.from('users').delete().eq('id', userId);
+                if (error) throw error;
+                allUsers = allUsers.filter(u => u.id !== userId);
+                closeModal('userModal');
+                renderUsers(allUsers);
+                sysLog(`Entity purged → ${userId}`);
+                console.log('[Admin] purgeUser → success');
+            } catch (err) {
+                console.error('[Admin] purgeUser error:', err);
+                showModalStatus('umActionStatus', 'error', 'Purge failed: ' + err.message);
+            }
+        }
+
+        // ============================================================
+        // RENDER: PROPOSALS
+        // ============================================================
+        let filteredProposals = [];
+
+        function renderProposals(list) {
+            filteredProposals = list;
+            const container = document.getElementById('proposalsContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO PROPOSALS</p>'; return; }
+
+            container.innerHTML = list.map(p => {
+                const verPill = p.verified
+                    ? '<span class="status-pill pill-active">Verified</span>'
+                    : '<span class="status-pill pill-pending">Pending</span>';
+
+                return `
+                    <div class="data-row" onclick="openPropModal('${p.id}')">
+                        <div class="data-row-left">
+                            <strong style="font-size:.9rem;">${p.title || 'Untitled'}</strong>
+                            <span style="display:block;font-size:.75rem;color:#64748b;margin-top:3px;">
+                                by ${p.users?.full_name || 'Unknown'} · ${p.category || '—'} · 
+                                ₹${parseFloat(p.amount_needed || 0).toLocaleString('en-IN')}
+                            </span>
+                            <span class="id-badge">${p.id}</span>
+                        </div>
+                        <div class="data-row-right">
+                            ${verPill}
+                            <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                                ${p.created_at ? new Date(p.created_at).toLocaleDateString('en-IN') : '—'}
+                            </span>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function filterProposals() {
+            const filter = document.getElementById('propStatusFilter')?.value || '';
+            const filtered = !filter ? allProposals : allProposals.filter(p => String(p.verified) === filter);
+            renderProposals(filtered);
+        }
+
+        function openPropModal(propId) {
+            console.log('[Admin] openPropModal →', propId);
+            const p = allProposals.find(x => x.id === propId);
+            if (!p) return;
+            currentModalPropId = propId;
+
+            const safe = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            safe('pmTitle',  p.title || '—');
+            safe('pmMeta',   `by ${p.users?.full_name || 'Unknown'} · ${p.category || '—'} · ${p.status || '—'}`);
+            safe('pmAmount', '₹' + parseFloat(p.amount_needed || 0).toLocaleString('en-IN'));
+            safe('pmEquity', (p.equity_offered || 0) + '%');
+            safe('pmScore',  p.success_score || 0);
+            safe('pmDesc',   p.description || 'No description.');
+
+            const link = document.getElementById('pmViewLink');
+            if (link) link.href = `proposal-details.html?id=${p.id}`;
+
+            const statusEl = document.getElementById('pmActionStatus');
+            if (statusEl) statusEl.style.display = 'none';
+
+            document.getElementById('propModal').style.display = 'flex';
+        }
+
+        async function verifyProposal(propId, approve) {
+            console.log('[Admin] verifyProposal →', propId, approve);
+            if (!confirm(approve ? 'Approve and publish this proposal?' : 'Reject this proposal?')) return;
+            try {
+                const { error } = await supabase.from('proposals')
+                    .update({ verified: approve, status: approve ? 'active' : 'closed' })
+                    .eq('id', propId);
+                if (error) throw error;
+
+                const p = allProposals.find(x => x.id === propId);
+                if (p) { p.verified = approve; p.status = approve ? 'active' : 'closed'; }
+
+                // Notify the entrepreneur about their proposal decision
+                const entrepreneurId = p?.users?.id || null;
+                if (entrepreneurId) {
+                    console.log('[Admin] verifyProposal → notifying entrepreneur:', entrepreneurId);
+                    const { error: notifErr } = await supabase.from('notifications').insert({
+                        user_id: entrepreneurId,
+                        title:   approve ? '✅ Proposal Approved!' : '❌ Proposal Rejected',
+                        message: approve
+                            ? `Your proposal "${p.title}" has been verified and is now live on the marketplace.`
+                            : `Your proposal "${p.title}" was reviewed and could not be approved at this time. Please contact support for details.`,
+                        type:    'proposal',
+                        link:    approve ? `proposal-details.html?id=${propId}` : 'support-info.html'
+                    });
+                    if (notifErr) console.warn('[Admin] verifyProposal → notification failed (non-fatal):', notifErr);
+                    else console.log('[Admin] verifyProposal → entrepreneur notified ✅');
+                } else {
+                    console.warn('[Admin] verifyProposal → could not find entrepreneur ID to notify');
+                }
+
+                showModalStatus('pmActionStatus', 'success', approve ? 'Proposal approved and live ✅' : 'Proposal rejected');
+                renderProposals(filteredProposals);
+                sysLog(`Proposal ${approve ? 'approved' : 'rejected'} → ${propId}`);
+                console.log('[Admin] verifyProposal → success');
+            } catch (err) {
+                console.error('[Admin] verifyProposal error:', err);
+                showModalStatus('pmActionStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        async function purgeProposal(propId) {
+            if (!confirm('Permanently delete this proposal?')) return;
+            console.log('[Admin] purgeProposal →', propId);
+            try {
+                const { error } = await supabase.from('proposals').delete().eq('id', propId);
+                if (error) throw error;
+                allProposals = allProposals.filter(p => p.id !== propId);
+                closeModal('propModal');
+                renderProposals(allProposals);
+                sysLog(`Proposal purged → ${propId}`);
+                console.log('[Admin] purgeProposal → success');
+            } catch (err) {
+                console.error('[Admin] purgeProposal error:', err);
+                showModalStatus('pmActionStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        // ============================================================
+        // RENDER: OFFERS
+        // ============================================================
+        let filteredOffers = [];
+
+        function renderOffers(list) {
+            filteredOffers = list;
+            const container = document.getElementById('offersContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO OFFERS</p>'; return; }
+
+            const statusPill = {
+                pending:  'pill-pending',
+                accepted: 'pill-active',
+                rejected: 'pill-suspended',
+            };
+
+            container.innerHTML = list.map(o => `
+                <div class="data-row">
+                    <div class="data-row-left">
+                        <strong style="font-size:.9rem;">
+                            ₹${parseFloat(o.amount || 0).toLocaleString('en-IN')} · ${o.equity_percentage || 0}% equity
+                        </strong>
+                        <span style="display:block;font-size:.75rem;color:#64748b;margin-top:3px;">
+                            Investor: <strong>${o.investor?.full_name || '—'}</strong> →
+                            Proposal: <strong>${o.proposals?.title || '—'}</strong>
+                        </span>
+                        <span class="id-badge">${o.id}</span>
+                    </div>
+                    <div class="data-row-right">
+                        <span class="status-pill ${statusPill[o.status] || 'pill-pending'}">${o.status || '—'}</span>
+                        <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                            ${o.created_at ? new Date(o.created_at).toLocaleDateString('en-IN') : '—'}
+                        </span>
+                    </div>
+                </div>`).join('');
+        }
+
+        function filterOffers() {
+            const filter = document.getElementById('offerStatusFilter')?.value || '';
+            renderOffers(!filter ? allOffers : allOffers.filter(o => o.status === filter));
+        }
+
+        // ============================================================
+        // RENDER: DEALS
+        // ============================================================
+        function renderDeals(list) {
+            const container = document.getElementById('dealsContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO DEALS YET</p>'; return; }
+
+            container.innerHTML = list.map(d => `
+                <div class="data-row">
+                    <div class="data-row-left">
+                        <strong style="font-size:.9rem;">${d.proposals?.title || '—'}</strong>
+                        <span style="display:block;font-size:.75rem;color:#64748b;margin-top:3px;">
+                            🤝 ${d.entrepreneur?.full_name || '—'} ↔ ${d.investor?.full_name || '—'}
+                        </span>
+                        <span style="display:block;font-size:.75rem;color:var(--shark-indigo);font-weight:800;margin-top:4px;">
+                            ₹${parseFloat(d.investment_amount || 0).toLocaleString('en-IN')} · ${d.equity_percentage || 0}% equity
+                        </span>
+                        <span class="id-badge">${d.id}</span>
+                    </div>
+                    <div class="data-row-right">
+                        <span class="status-pill pill-active">Active Deal</span>
+                        <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                            ${d.deal_date ? new Date(d.deal_date).toLocaleDateString('en-IN') : '—'}
+                        </span>
+                    </div>
+                </div>`).join('');
+        }
+
+        // ============================================================
+        // RENDER: TRANSACTIONS
+        // ============================================================
+        function renderTxns(list) {
+            const container = document.getElementById('txnsContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO TRANSACTIONS YET</p>'; return; }
+
+            container.innerHTML = `
+                <div style="background:#f8fafc;border-radius:16px;overflow:hidden;border:1px solid var(--shark-border);">
+                    ${list.map(t => {
+                        const amount = parseFloat(t.amount || 0);
+                        const equity = parseFloat(t.equity_given || 1);
+                        const valuation = equity > 0 ? Math.round(amount / (equity / 100)) : 0;
+                        return `
+                            <div class="log-row">
+                                <div>
+                                    <strong style="font-size:.88rem;">${t.proposals?.title || '—'}</strong>
+                                    <span style="display:block;font-size:.72rem;color:#64748b;">
+                                        Investor: ${t.investor?.full_name || '—'} · 
+                                        Category: ${t.proposals?.category || '—'}
+                                    </span>
+                                    <span class="id-badge">${t.id}</span>
+                                </div>
+                                <div style="text-align:right;">
+                                    <strong style="color:var(--shark-emerald);font-size:1rem;">
+                                        ₹${amount.toLocaleString('en-IN')}
+                                    </strong>
+                                    <span style="display:block;font-size:.7rem;color:#94a3b8;">
+                                        ${t.equity_given || 0}% · Val: ₹${valuation.toLocaleString('en-IN')}
+                                    </span>
+                                    <span style="font-size:.62rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                                        ${t.transaction_date ? new Date(t.transaction_date).toLocaleString('en-IN') : '—'}
+                                    </span>
+                                </div>
+                            </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
+        // ============================================================
+        // RENDER: SUPPORT
+        // ============================================================
+        let filteredTickets = [];
+
+        function renderSupport(list) {
+            filteredTickets = list;
+            const container = document.getElementById('supportContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO TICKETS</p>'; return; }
+
+            const pillMap = { pending: 'pill-pending', under_review: 'pill-pending', resolved: 'pill-resolved' };
+
+            container.innerHTML = list.map(t => `
+                <div class="data-row" onclick="openSupportModal('${t.id}')" style="cursor:pointer;">
+                    <div class="data-row-left">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                            <span class="status-pill ${pillMap[t.status] || 'pill-pending'}">${(t.status||'').replace('_',' ')}</span>
+                            <strong style="font-size:.9rem;">${t.subject || '—'}</strong>
+                        </div>
+                        <span style="font-size:.75rem;color:#64748b;">
+                            From: ${t.users?.full_name || '—'} (${t.users?.email || '—'})
+                        </span>
+                        <p style="font-size:.78rem;color:#94a3b8;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:500px;">
+                            ${(t.message || '').substring(0, 80)}${(t.message||'').length > 80 ? '…' : ''}
+                        </p>
+                    </div>
+                    <div class="data-row-right">
+                        <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                            ${t.created_at ? new Date(t.created_at).toLocaleDateString('en-IN') : '—'}
+                        </span>
+                    </div>
+                </div>`).join('');
+        }
+
+        function filterSupport() {
+            const filter = document.getElementById('supportFilter')?.value || '';
+            renderSupport(!filter ? allTickets : allTickets.filter(t => t.status === filter));
+        }
+
+        function openSupportModal(ticketId) {
+            console.log('[Admin] openSupportModal →', ticketId);
+            const t = allTickets.find(x => x.id === ticketId);
+            if (!t) return;
+            currentTicket = t;
+
+            const safe = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+            safe('smSubject', t.subject || '—');
+            safe('smUser',    `${t.users?.full_name || '—'} (${t.users?.email || '—'})`);
+            safe('smMsg',     t.message || '—');
+
+            const replyInput = document.getElementById('smReply');
+            if (replyInput) replyInput.value = '';
+
+            const existing = document.getElementById('smExistingReply');
+            const existingText = document.getElementById('smExistingReplyText');
+            if (t.admin_notes && existing && existingText) {
+                existingText.textContent = t.admin_notes;
+                existing.style.display = 'block';
+            } else if (existing) {
+                existing.style.display = 'none';
+            }
+
+            const statusEl = document.getElementById('smStatus');
+            if (statusEl) statusEl.style.display = 'none';
+
+            document.getElementById('supportModal').style.display = 'flex';
+        }
+
+        async function submitDirective() {
+            if (!currentTicket) return;
+            const notes = document.getElementById('smReply')?.value?.trim();
+            if (!notes) { showModalStatus('smStatus', 'error', 'Please write a directive first.'); return; }
+            console.log('[Admin] submitDirective → ticketId:', currentTicket.id);
+            try {
+                const { error } = await supabase.from('support_inquiries')
+                    .update({ admin_notes: notes, status: 'resolved' })
+                    .eq('id', currentTicket.id);
+                if (error) throw error;
+
+                // Notify the user their ticket was resolved
+                const { error: notifErr } = await supabase.from('notifications').insert({
+                    user_id: currentTicket.user_id,
+                    title:   '✅ Support Ticket Resolved',
+                    message: `Your inquiry "${currentTicket.subject}" has received a response from Oversight.`,
+                    type:    'support',
+                    link:    'support-info.html'
+                });
+                if (notifErr) console.warn('[Admin] notification insert warning:', notifErr);
+                else console.log('[Admin] submitDirective → user notified ✅');
+
+                currentTicket.admin_notes = notes;
+                currentTicket.status = 'resolved';
+                allTickets = allTickets.map(t => t.id === currentTicket.id ? currentTicket : t);
+                renderSupport(filteredTickets);
+                showModalStatus('smStatus', 'success', 'Directive transmitted and ticket resolved ✅');
+                sysLog(`Ticket resolved → ${currentTicket.id}`);
+                console.log('[Admin] submitDirective → success');
+            } catch (err) {
+                console.error('[Admin] submitDirective error:', err);
+                showModalStatus('smStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        async function submitDirectiveOnly() {
+            if (!currentTicket) return;
+            const notes = document.getElementById('smReply')?.value?.trim();
+            if (!notes) { showModalStatus('smStatus', 'error', 'Nothing to save.'); return; }
+            console.log('[Admin] submitDirectiveOnly → saving draft for ticket:', currentTicket.id);
+            try {
+                const { error } = await supabase.from('support_inquiries')
+                    .update({ admin_notes: notes, status: 'under_review' })
+                    .eq('id', currentTicket.id);
+                if (error) throw error;
+                showModalStatus('smStatus', 'success', 'Draft saved — ticket marked under review');
+                console.log('[Admin] submitDirectiveOnly → success');
+            } catch (err) {
+                console.error('[Admin] submitDirectiveOnly error:', err);
+                showModalStatus('smStatus', 'error', 'Error: ' + err.message);
+            }
+        }
+
+        // ============================================================
+        // RENDER: COMMS (CHAT ROOMS)
+        // ============================================================
+        function renderComms(list) {
+            const container = document.getElementById('commsContainer');
+            if (!container) return;
+            if (!list.length) { container.innerHTML = '<p style="text-align:center;opacity:.4;padding:3rem;font-weight:800;">NO CHANNELS</p>'; return; }
+
+            container.innerHTML = list.map(r => `
+                <div class="data-row" onclick="window.open('chat.html?room=${r.id}','_blank')" style="cursor:pointer;">
+                    <div class="data-row-left">
+                        <strong style="font-size:.9rem;">
+                            ${r.entrepreneur?.full_name || 'Unknown'} ↔ ${r.investor?.full_name || 'Unknown'}
+                        </strong>
+                        <span style="display:block;font-size:.75rem;color:#64748b;margin-top:3px;">
+                            Proposal: ${r.proposals?.title || 'Direct Channel'}
+                        </span>
+                        <span class="id-badge">${r.id}</span>
+                    </div>
+                    <div class="data-row-right">
+                        <span class="status-pill pill-active">Active</span>
+                        <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                            ${r.updated_at ? new Date(r.updated_at).toLocaleDateString('en-IN') : '—'}
+                        </span>
+                        <span class="btn-core btn-slate" style="font-size:.6rem;">Enter ↗</span>
+                    </div>
+                </div>`).join('');
+        }
+
+        // ============================================================
+        // RENDER: ANALYTICS
+        // ============================================================
+        function renderAnalytics() {
+            const container = document.getElementById('analyticsContainer');
+            if (!container) return;
+            console.log('[Admin] renderAnalytics → computing...');
+
+            const totalCapital   = allTxns.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
+            const avgDeal        = allDeals.length > 0
+                ? allDeals.reduce((s, d) => s + parseFloat(d.investment_amount || 0), 0) / allDeals.length
+                : 0;
+            const verifiedProps  = allProposals.filter(p => p.verified).length;
+            const pendingProps   = allProposals.filter(p => !p.verified).length;
+            const entrepreneurs  = allUsers.filter(u => u.role === 'entrepreneur').length;
+            const investors      = allUsers.filter(u => u.role === 'investor').length;
+            const conversionRate = allProposals.length > 0
+                ? ((allDeals.length / allProposals.length) * 100).toFixed(1)
+                : '0.0';
+
+            // Top investors
+            const investorTotals = {};
+            allTxns.forEach(t => {
+                const name = t.investor?.full_name || 'Unknown';
+                investorTotals[name] = (investorTotals[name] || 0) + parseFloat(t.amount || 0);
+            });
+            const topInvestors = Object.entries(investorTotals)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            // Category breakdown
+            const catMap = {};
+            allProposals.forEach(p => { if (p.category) catMap[p.category] = (catMap[p.category] || 0) + 1; });
+            const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+            container.innerHTML = `
+                <div class="analytics-grid">
+                    <div class="analytics-node">
+                        <div class="analytics-val">₹${totalCapital.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                        <span class="analytics-label">Total Capital Deployed</span>
+                    </div>
+                    <div class="analytics-node">
+                        <div class="analytics-val">₹${avgDeal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                        <span class="analytics-label">Avg Deal Size</span>
+                    </div>
+                    <div class="analytics-node">
+                        <div class="analytics-val">${conversionRate}%</div>
+                        <span class="analytics-label">Proposal → Deal Rate</span>
+                    </div>
+                    <div class="analytics-node">
+                        <div class="analytics-val">${entrepreneurs}</div>
+                        <span class="analytics-label">Entrepreneurs</span>
+                    </div>
+                    <div class="analytics-node">
+                        <div class="analytics-val">${investors}</div>
+                        <span class="analytics-label">Investors</span>
+                    </div>
+                    <div class="analytics-node">
+                        <div class="analytics-val">${verifiedProps} / ${pendingProps}</div>
+                        <span class="analytics-label">Verified / Pending Props</span>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+                    <div>
+                        <h3 style="font-weight:900;margin-bottom:14px;font-size:1rem;">Top Investors by Capital</h3>
+                        <div style="background:#f8fafc;border-radius:16px;border:1px solid var(--shark-border);overflow:hidden;">
+                            ${topInvestors.length
+                                ? topInvestors.map(([name, amt], i) => `
+                                    <div class="log-row">
+                                        <div style="display:flex;align-items:center;gap:10px;">
+                                            <span style="font-size:.65rem;font-weight:900;color:#94a3b8;width:16px;">#${i+1}</span>
+                                            <strong style="font-size:.85rem;">${name}</strong>
+                                        </div>
+                                        <strong style="color:var(--shark-emerald);">₹${amt.toLocaleString('en-IN')}</strong>
+                                    </div>`).join('')
+                                : '<p style="text-align:center;opacity:.4;padding:2rem;font-size:.8rem;">No transaction data yet</p>'}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 style="font-weight:900;margin-bottom:14px;font-size:1rem;">Proposals by Category</h3>
+                        <div style="background:#f8fafc;border-radius:16px;border:1px solid var(--shark-border);overflow:hidden;">
+                            ${topCats.length
+                                ? topCats.map(([cat, count]) => {
+                                    const pct = allProposals.length > 0 ? (count / allProposals.length * 100).toFixed(0) : 0;
+                                    return `
+                                        <div class="log-row" style="flex-direction:column;align-items:flex-start;gap:6px;">
+                                            <div style="display:flex;justify-content:space-between;width:100%;">
+                                                <strong style="font-size:.82rem;">${cat}</strong>
+                                                <span style="font-size:.75rem;color:#64748b;">${count} (${pct}%)</span>
+                                            </div>
+                                            <div style="height:6px;background:#e2e8f0;border-radius:10px;width:100%;overflow:hidden;">
+                                                <div style="height:100%;width:${pct}%;background:var(--shark-indigo);border-radius:10px;"></div>
+                                            </div>
+                                        </div>`;
+                                }).join('')
+                                : '<p style="text-align:center;opacity:.4;padding:2rem;font-size:.8rem;">No proposal data yet</p>'}
+                        </div>
+                    </div>
+                </div>`;
+
+            console.log('[Admin] renderAnalytics → rendered ✅');
+        }
+
+        // ============================================================
+        // BROADCAST
+        // ============================================================
+        async function sendBroadcast() {
+            const target  = document.getElementById('broadcastTarget')?.value;
+            const title   = document.getElementById('broadcastTitle')?.value?.trim();
+            const message = document.getElementById('broadcastMsg')?.value?.trim();
+            const statusEl = document.getElementById('broadcastStatus');
+
+            if (!title || !message) {
+                showStatus(statusEl, 'error', 'Please fill in both title and message.');
+                return;
+            }
+
+            console.log('[Admin] sendBroadcast → target:', target, '| title:', title);
+
+            try {
+                // Get target user IDs
+                let query = supabase.from('users').select('id');
+                if (target !== 'all') query = query.eq('role', target);
+                const { data: targets, error: targetErr } = await query;
+                if (targetErr) throw targetErr;
+
+                console.log('[Admin] sendBroadcast → targeting', targets?.length, 'users');
+
+                if (!targets || targets.length === 0) {
+                    showStatus(statusEl, 'error', 'No users found for this target group.');
+                    return;
+                }
+
+                // Insert notifications in batch
+                const notifs = targets.map(u => ({
+                    user_id: u.id,
+                    title:   title,
+                    message: message,
+                    type:    'broadcast',
+                    link:    null
+                }));
+
+                const { error: insertErr } = await supabase.from('notifications').insert(notifs);
+                if (insertErr) throw insertErr;
+
+                showStatus(statusEl, 'success', `📡 Broadcast transmitted to ${targets.length} users ✅`);
+                document.getElementById('broadcastTitle').value = '';
+                document.getElementById('broadcastMsg').value   = '';
+                sysLog(`Broadcast sent → ${targets.length} recipients`);
+                console.log('[Admin] sendBroadcast → success');
+
+                // Refresh history
+                const { data: hist } = await supabase.from('notifications')
+                    .select('id, title, created_at, type').eq('type', 'broadcast')
+                    .order('created_at', { ascending: false }).limit(10);
+                renderBroadcastHistory(hist || []);
+            } catch (err) {
+                console.error('[Admin] sendBroadcast error:', err);
+                showStatus(statusEl, 'error', 'Error: ' + err.message);
+            }
+        }
+
+        function renderBroadcastHistory(list) {
+            const container = document.getElementById('broadcastHistory');
+            if (!container) return;
+            if (!list.length) {
+                container.innerHTML = '<p style="text-align:center;opacity:.4;padding:2rem;font-size:.8rem;font-weight:800;">NO BROADCASTS YET</p>';
+                return;
+            }
+            container.innerHTML = `
+                <div style="background:#f8fafc;border-radius:16px;border:1px solid var(--shark-border);overflow:hidden;">
+                    ${list.map(b => `
+                        <div class="log-row">
+                            <strong style="font-size:.85rem;">${b.title || '—'}</strong>
+                            <span style="font-size:.65rem;color:#94a3b8;font-family:'JetBrains Mono';">
+                                ${b.created_at ? new Date(b.created_at).toLocaleDateString('en-IN') : '—'}
+                            </span>
+                        </div>`).join('')}
+                </div>`;
+        }
+
+        // ============================================================
+        // INITIATE CHAT WITH USER
+        // ============================================================
+        async function initiateChat(userId) {
+            if (!userId) { console.warn('[Admin] initiateChat → no userId'); return; }
+            console.log('[Admin] initiateChat → userId:', userId);
+            sysLog('Initializing secure channel...');
+            try {
+                // Check for existing room between admin and this user
+                let { data: room, error: roomErr } = await supabase
+                    .from('chat_rooms')
+                    .select('id')
+                    .or(`and(investor_id.eq.${adminId},entrepreneur_id.eq.${userId}),and(investor_id.eq.${userId},entrepreneur_id.eq.${adminId})`)
+                    .maybeSingle();
+
+                if (roomErr) console.warn('[Admin] initiateChat → room check error:', roomErr);
+
+                if (!room) {
+                    console.log('[Admin] initiateChat → no existing room, creating...');
+                    const { data: newRoom, error: createErr } = await supabase
+                        .from('chat_rooms')
+                        .insert({ investor_id: adminId, entrepreneur_id: userId, last_message: 'Admin channel initiated' })
+                        .select()
+                        .maybeSingle();
+                    if (createErr) throw createErr;
+                    room = newRoom;
+                    console.log('[Admin] initiateChat → room created:', room?.id);
+                } else {
+                    console.log('[Admin] initiateChat → existing room found:', room.id);
+                }
+
+                window.location.href = `chat.html?room=${room.id}`;
+            } catch (err) {
+                console.error('[Admin] initiateChat error:', err);
+                sysLog('ERROR: Channel creation failed — ' + err.message);
+            }
+        }
+
+        // ============================================================
+        // TAB SWITCHING
+        // ============================================================
+        function switchTab(id, btn) {
+            console.log('[Admin] switchTab →', id);
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+            const panel = document.getElementById(id + '-tab');
+            if (panel) panel.classList.add('active');
+            else console.warn('[Admin] switchTab → panel not found:', id + '-tab');
+            if (btn) btn.classList.add('active');
+        }
+
+        // ============================================================
+        // LOGOUT
+        // ============================================================
+        async function handleAdminLogout() {
+            if (!confirm('Terminate admin session?')) return;
+            console.log('[Admin] handleAdminLogout → signing out...');
+            try {
+                await supabase.auth.signOut();
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.replace('auth.html');
+            } catch (err) {
+                console.error('[Admin] logout error:', err);
+                window.location.replace('auth.html');
+            }
+        }
+
+        // ============================================================
+        // MODAL UTILITIES
+        // ============================================================
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+
+        function showModalStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.style.display = 'block';
+            el.textContent   = message;
+            el.style.background = type === 'success' ? '#dcfce7' : '#fee2e2';
+            el.style.color      = type === 'success' ? '#15803d'  : '#b91c1c';
+            el.style.border     = type === 'success' ? '1px solid #86efac' : '1px solid #fca5a5';
+        }
+
+        function showStatus(el, type, message) {
+            if (!el) return;
+            el.style.display    = 'block';
+            el.textContent      = message;
+            el.style.background = type === 'success' ? '#dcfce7' : '#fee2e2';
+            el.style.color      = type === 'success' ? '#15803d'  : '#b91c1c';
+            el.style.border     = type === 'success' ? '1px solid #86efac' : '1px solid #fca5a5';
+        }
+
+        // Close modals on Escape key
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                ['userModal','propModal','supportModal'].forEach(id => closeModal(id));
+            }
+        });
+
+        // ============================================================
+        // BOOT
+        // ============================================================
+        window.onload = init;
+        console.log('[Admin] Script parsed, waiting for window.onload...');
+    </script>
+</body>
+</html>

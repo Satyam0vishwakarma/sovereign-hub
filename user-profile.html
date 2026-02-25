@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity Audit | Sovereign Hub</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        :root {
+            --shark-obsidian: #020617;
+            --shark-indigo: #6366f1;
+            --shark-bg: #f8fafc;
+            --shark-border: #e2e8f0;
+            --shark-emerald: #10b981;
+        }
+
+        body { background-color: var(--shark-bg); color: var(--shark-obsidian); font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; margin: 0; }
+
+        /* --- 1. TRINITY TERMINAL NAV --- */
+        .trinity-nav {
+            background: var(--shark-obsidian);
+            height: 80px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 5000;
+        }
+        .nav-left { display: flex; justify-content: flex-start; }
+        .nav-center { display: flex; justify-content: center; }
+        .nav-right { display: flex; justify-content: flex-end; }
+        
+        .back-btn { color: #94a3b8; text-decoration: none; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; }
+        .back-btn:hover { color: white; transform: translateX(-5px); }
+
+        .central-statement { 
+            color: white; font-weight: 800; text-transform: uppercase; letter-spacing: 4px; 
+            font-size: 0.7rem; opacity: 0.7; margin: 0; text-align: center; 
+            border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); 
+            padding: 0 30px; 
+        }
+
+        .status-pill { background: rgba(16, 185, 129, 0.1); color: var(--shark-emerald); padding: 6px 16px; border-radius: 50px; font-size: 0.6rem; font-weight: 900; letter-spacing: 1px; }
+
+        /* --- 2. SLIM VELVET HEADER --- */
+        .profile-header {
+            background: var(--shark-obsidian);
+            background-image: radial-gradient(circle at 100% 100%, rgba(99,102,241,0.12) 0%, transparent 40%);
+            padding: 4rem 2rem 7rem;
+            text-align: center;
+            color: white;
+            border-radius: 0 0 60px 60px;
+        }
+
+        .profile-avatar-xl {
+            width: 110px; height: 110px;
+            background: white; color: var(--shark-obsidian);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; font-weight: 900; margin: 0 auto 1.5rem;
+            border: 6px solid rgba(255,255,255,0.1); text-transform: uppercase;
+        }
+
+        .profile-name-wrapper { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 0.5rem; }
+        .profile-name { font-size: 2.8rem; font-weight: 900; letter-spacing: -2px; margin: 0; }
+        
+        .verified-mark {
+            background: var(--shark-emerald); color: white;
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .profile-role-tag { font-size: 0.7rem; font-weight: 800; letter-spacing: 3px; color: var(--shark-indigo); text-transform: uppercase; }
+
+        /* --- 3. LAYOUT --- */
+        .profile-layout {
+            max-width: 1400px;
+            margin: -5rem auto 100px;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 3.5rem;
+            padding: 0 2rem;
+        }
+
+        .identity-sidebar {
+            background: white; border-radius: 40px; padding: 3rem;
+            border: 1px solid var(--shark-border); height: fit-content;
+            position: sticky; top: 110px; box-shadow: 0 30px 60px rgba(0,0,0,0.05);
+        }
+
+        .sidebar-heading { font-size: 0.7rem; font-weight: 900; color: var(--shark-indigo); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; display: block; }
+
+        .forensic-item { margin-bottom: 1.5rem; }
+        .forensic-label { font-size: 0.55rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+        .hash-id { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--shark-indigo); background: #f5f3ff; padding: 6px 12px; border-radius: 8px; word-break: break-all; display: block; margin-top: 5px; }
+
+        /* ASSET NODES */
+        .asset-node {
+            background: white; border-radius: 35px; padding: 2.2rem;
+            border: 1px solid var(--shark-border);
+            display: grid; grid-template-columns: 1fr 200px;
+            align-items: center; transition: 0.4s; cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+        .asset-node:hover { transform: translateY(-8px); border-color: var(--shark-indigo); box-shadow: 0 40px 80px rgba(0,0,0,0.06); }
+        
+        .node-category { background: #f1f5f9; padding: 4px 12px; border-radius: 8px; font-size: 0.6rem; font-weight: 800; color: var(--shark-indigo); text-transform: uppercase; margin-bottom: 10px; display: inline-block; }
+        .node-title { font-size: 1.6rem; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .node-ask { font-size: 1.8rem; font-weight: 900; color: var(--shark-obsidian); }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- TRINITY TERMINAL NAV -->
+    <nav class="trinity-nav">
+        <div class="nav-left">
+            <a href="dashboard.html" class="back-btn">← Terminal Hub</a>
+        </div>
+        <div class="nav-center">
+            <h2 class="central-statement">Money can't buy happiness, isn't it?</h2>
+        </div>
+        <div class="nav-right">
+            <span class="status-pill">SYSTEM_AUDIT_ACTIVE</span>
+        </div>
+    </nav>
+
+    <header class="profile-header">
+        <div class="profile-avatar-xl" id="displayAvatar">?</div>
+        <div class="profile-name-wrapper">
+            <h1 class="profile-name" id="displayName">Entity Name</h1>
+            <div id="verifiedMark" class="verified-mark hidden">✓</div>
+        </div>
+        <div class="profile-role-tag" id="displayRole">-</div>
+    </header>
+
+    <main class="profile-layout">
+        <!-- SIDEBAR: FORENSIC DATA -->
+        <aside class="identity-sidebar">
+            <span class="sidebar-heading">Forensic Case File</span>
+            
+            <div class="forensic-item">
+                <span class="forensic-label">Unique System ID</span>
+                <code class="hash-id" id="displayHash">...</code>
+            </div>
+
+            <div class="forensic-item">
+                <span class="forensic-label">Entity Genesis Date</span>
+                <div style="font-weight: 700;" id="displayJoined">-</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 2rem 0;">
+                <div style="background:#f8fafc; padding:15px; border-radius:15px; border:1px solid var(--shark-border);">
+                    <span class="forensic-label">Executed Deals</span>
+                    <div style="font-size: 1.2rem; font-weight: 900;" id="statDeals">0</div>
+                </div>
+                <div style="background:#f8fafc; padding:15px; border-radius:15px; border:1px solid var(--shark-border);">
+                    <span class="forensic-label">Operating At</span>
+                    <div style="font-weight: 700;" id="statLocation">-</div>
+                </div>
+            </div>
+
+            <span class="forensic-label">Biography</span>
+            <p style="font-size: 0.85rem; line-height: 1.6; color: #64748b; margin-top: 10px;" id="displayBio">-</p>
+        </aside>
+
+        <!-- MAIN: ASSETS -->
+        <div class="assets-container">
+            <h3 style="font-size: 1.3rem; font-weight: 900; margin-bottom: 2rem; letter-spacing: -0.5px;">Verified Capital Manifest</h3>
+            <div id="proposalsList"></div>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const profileUserId = urlParams.get('id');
+
+        async function init() {
+            if (!profileUserId) return window.location.href = 'dashboard.html';
+
+            const [profileRes, dealsRes] = await Promise.all([
+                supabase.from('users').select('*').eq('id', profileUserId).maybeSingle(),
+                supabase.from('deals').select('*', { count: 'exact', head: true })
+                    .or(`entrepreneur_id.eq.${profileUserId},investor_id.eq.${profileUserId}`)
+            ]);
+
+            const profile = profileRes.data;
+            if (!profile) return window.location.href = 'dashboard.html';
+
+            // UI Population
+            document.getElementById('displayName').textContent = profile.full_name;
+            document.getElementById('displayAvatar').textContent = profile.full_name[0];
+            document.getElementById('displayRole').textContent = profile.role.toUpperCase();
+            if (profile.verified) document.getElementById('verifiedMark').classList.remove('hidden');
+
+            document.getElementById('displayHash').textContent = profile.id;
+            document.getElementById('displayJoined').textContent = new Date(profile.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+            document.getElementById('statDeals').textContent = dealsRes.count || "0";
+            document.getElementById('statLocation').textContent = profile.location || "N/A";
+            document.getElementById('displayBio').textContent = profile.bio || "Entity biography remains encrypted.";
+
+            if (profile.role === 'entrepreneur') {
+                loadProposals();
+            } else {
+                document.getElementById('proposalsList').innerHTML = `
+                    <div style="padding: 5rem 2rem; text-align: center; background: white; border-radius: 40px; border: 1px dashed var(--shark-border); opacity: 0.6;">
+                        <h2 style="font-weight: 900; margin-bottom: 0.5rem;">Sovereign Portfolio</h2>
+                        <p style="color: #64748b; font-size: 0.9rem;">Deployment history restricted to authorized partners.</p>
+                    </div>`;
+            }
+        }
+
+        async function loadProposals() {
+            const { data: props } = await supabase.from('proposals').select('*').eq('user_id', profileUserId).eq('verified', true).order('created_at', { ascending: false });
+            const container = document.getElementById('proposalsList');
+            
+            if (!props?.length) {
+                container.innerHTML = `<p style="opacity:0.2; font-weight:800; text-align:center; padding: 4rem;">MANIFEST EMPTY.</p>`;
+                return;
+            }
+
+            container.innerHTML = props.map(p => `
+                <div class="asset-node" onclick="window.location.href='proposal-details.html?id=${p.id}'">
+                    <div>
+                        <span class="node-category">${p.category}</span>
+                        <h2 class="node-title">${p.title}</h2>
+                        <p style="color: #94a3b8; font-size: 0.85rem; font-weight: 500;">${p.tagline || 'No tagline recorded.'}</p>
+                    </div>
+                    <div style="text-align: right; border-left: 1px solid #f1f5f9; padding-left: 25px;">
+                        <span class="forensic-label">Verified Ask</span>
+                        <div class="node-ask">₹${parseInt(p.amount_needed).toLocaleString('en-IN')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Term Sheet Audit | Sovereign Hub</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        :root {
+            --shark-obsidian: #020617;
+            --shark-indigo: #6366f1;
+            --shark-bg: #f8fafc;
+            --shark-border: #e2e8f0;
+            --shark-emerald: #10b981;
+            --shark-crimson: #ef4444;
+        }
+
+        body { background-color: var(--shark-bg); color: var(--shark-obsidian); font-family: 'Plus Jakarta Sans', sans-serif; margin: 0; -webkit-font-smoothing: antialiased; }
+
+        .trinity-nav {
+            background: var(--shark-obsidian); height: 80px; display: grid; grid-template-columns: 1fr 2fr 1fr;
+            align-items: center; padding: 0 40px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky; top: 0; z-index: 5000;
+        }
+        .back-btn { color: #94a3b8; text-decoration: none; font-weight: 700; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; }
+        .central-statement { color: white; font-weight: 800; text-transform: uppercase; letter-spacing: 4px; font-size: 0.7rem; opacity: 0.7; text-align: center; }
+
+        .audit-header {
+            background: var(--shark-obsidian); background-image: radial-gradient(circle at 100% 100%, rgba(99,102,241,0.12) 0%, transparent 40%);
+            color: white; padding: 6rem 0 10rem 0; border-radius: 0 0 60px 60px; text-align: center;
+        }
+        .audit-title { font-size: 3.5rem; font-weight: 900; letter-spacing: -3px; line-height: 1; margin: 10px 0; }
+
+        .audit-layout { max-width: 1200px; margin: -7rem auto 100px; display: grid; grid-template-columns: 1fr 380px; gap: 3rem; padding: 0 2rem; }
+        .term-sheet-card { background: white; border-radius: 50px; padding: 4rem; border: 1px solid var(--shark-border); box-shadow: 0 30px 60px rgba(0,0,0,0.05); }
+
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 2rem 0; }
+        .comparison-table th { text-align: left; font-size: 0.65rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; padding: 15px; border-bottom: 1px solid #f1f5f9; }
+        .comparison-table td { padding: 25px 15px; font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid #f8fafc; }
+
+        .val-diff { font-size: 0.75rem; font-weight: 800; padding: 4px 10px; border-radius: 8px; margin-left: 10px; }
+        .diff-plus  { background: #ecfdf5; color: var(--shark-emerald); }
+        .diff-minus { background: #fef2f2; color: var(--shark-crimson); }
+
+        .f-label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 8px; }
+        .investor-msg { background: #f8fafc; padding: 2rem; border-radius: 30px; border-left: 6px solid var(--shark-indigo); font-style: italic; color: #475569; line-height: 1.7; margin-top: 2rem; }
+
+        .sidebar-card { background: white; border-radius: 40px; padding: 2.5rem; border: 1px solid var(--shark-border); margin-bottom: 2rem; }
+        .id-badge { font-family: 'JetBrains Mono'; font-size: 0.65rem; color: var(--shark-indigo); background: #f5f3ff; padding: 8px 12px; border-radius: 10px; display: block; margin-top: 5px; word-break: break-all; }
+
+        .decision-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 3rem; }
+        .btn-decision { padding: 22px; border-radius: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; border: none; transition: 0.3s; font-size: 0.85rem; }
+        .btn-accept { background: var(--shark-emerald); color: white; box-shadow: 0 10px 20px rgba(16,185,129,0.3); }
+        .btn-accept:hover:not(:disabled) { transform: translateY(-5px); filter: brightness(1.1); }
+        .btn-reject { background: #f1f5f9; color: var(--shark-crimson); }
+        .btn-reject:hover:not(:disabled) { background: var(--shark-crimson); color: white; }
+        .btn-decision:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Transaction progress */
+        #txnStatus { display:none; margin-top:1.5rem; padding:20px; border-radius:20px; font-size:0.82rem; }
+        .txn-step { display:flex; align-items:center; gap:10px; padding:7px 0; font-weight:700; color:#64748b; }
+        .step-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; flex-shrink:0; font-weight:900; }
+        .step-pending { background:#f1f5f9; color:#94a3b8; }
+        .step-running { background:#dbeafe; color:#1d4ed8; }
+        .step-done    { background:#dcfce7; color:#15803d; }
+        .step-error   { background:#fee2e2; color:#b91c1c; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <nav class="trinity-nav">
+        <div class="nav-left"><a href="dashboard.html" class="back-btn">← Back to Dashboard</a></div>
+        <div class="nav-center"><h2 class="central-statement">Money can't buy happiness, isn't it?</h2></div>
+        <div class="nav-right" style="text-align:right;"><span style="color:var(--shark-emerald); font-weight:900; font-size:0.6rem;">SECURE_HANDSHAKE_v2</span></div>
+    </nav>
+
+    <header class="audit-header">
+        <span style="font-size:0.75rem; font-weight:900; letter-spacing:4px; color:var(--shark-indigo); text-transform:uppercase;">Forensic Term Sheet Audit</span>
+        <h1 class="audit-title" id="pitchTitle">Loading Asset...</h1>
+        <div id="offerStatus" style="font-size:0.8rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; opacity:0.6;">Status: Verifying...</div>
+    </header>
+
+    <main class="audit-layout">
+        <section class="term-sheet-card">
+            <h3 class="f-label" style="color:var(--shark-indigo); border-bottom:1px solid #f1f5f9; padding-bottom:15px; margin-bottom:30px;">Investment Variance Audit</h3>
+
+            <table class="comparison-table">
+                <thead>
+                    <tr><th>Metric</th><th>Original Ask</th><th>Shark's Offer</th></tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="f-label">Capital Amount</span></td>
+                        <td id="askAmount">₹0</td>
+                        <td><span id="offerAmount">₹0</span><span id="amountDiff" class="val-diff"></span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="f-label">Equity Stake</span></td>
+                        <td id="askEquity">0%</td>
+                        <td><span id="offerEquity">0%</span><span id="equityDiff" class="val-diff"></span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="f-label">Implied Valuation</span></td>
+                        <td id="askVal">₹0</td>
+                        <td><span id="offerVal">₹0</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3 class="f-label" style="color:var(--shark-indigo); margin-top:4rem;">Supplemental Transmissions</h3>
+            <div class="investor-msg" id="offerMsg">"No commentary provided with this term sheet."</div>
+
+            <div id="decisionArea" class="decision-bar hidden">
+                <button id="acceptBtn" onclick="updateOfferStatus('accepted')" class="btn-decision btn-accept">Authorize & Close Deal</button>
+                <button id="rejectBtn" onclick="updateOfferStatus('rejected')" class="btn-decision btn-reject">Decline Terms</button>
+            </div>
+
+            <!-- Transaction progress shown during accept flow -->
+            <div id="txnStatus"></div>
+        </section>
+
+        <aside>
+            <div class="sidebar-card">
+                <span class="f-label">The Shark</span>
+                <div style="display:flex; align-items:center; gap:15px; margin:15px 0;">
+                    <div id="sharkAvatar" style="width:50px; height:50px; border-radius:50%; background:var(--shark-obsidian); color:white; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.2rem;">S</div>
+                    <strong id="sharkName" style="font-size:1.2rem;">-</strong>
+                </div>
+                <button onclick="openChat()" class="btn-decision btn-accept" style="padding:12px; font-size:0.7rem; width:100%; background:var(--shark-indigo);">Open Neural Link</button>
+            </div>
+
+            <div class="sidebar-card">
+                <span class="f-label">Audit Metadata</span>
+                <div style="margin-top:20px;">
+                    <span class="f-label">Offer UUID</span>
+                    <code class="id-badge" id="offerID">...</code>
+                    <span class="f-label" style="margin-top:15px;">Transaction Genesis</span>
+                    <div style="font-weight:700; font-size:0.85rem;" id="offerDate">-</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        console.log('[OfferDetail] Script initializing...');
+
+        const urlParams  = new URLSearchParams(window.location.search);
+        const offerId    = urlParams.get('id');
+        let currentOffer = null;
+        let currentUser  = null;
+
+        console.log('[OfferDetail] Offer ID from URL:', offerId);
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        async function initAudit() {
+            console.log('[OfferDetail] initAudit → starting...');
+
+            if (!offerId) {
+                console.error('[OfferDetail] initAudit → no offer ID in URL, redirecting');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            const { data: { user }, error: authErr } = await supabase.auth.getUser();
+            if (authErr) { console.error('[OfferDetail] auth error:', authErr); window.location.href = 'auth.html'; return; }
+            if (!user)   { console.warn('[OfferDetail] no session');            window.location.href = 'auth.html'; return; }
+            currentUser = user;
+            console.log('[OfferDetail] initAudit → user:', user.id);
+
+            const { data: o, error: offerErr } = await supabase
+                .from('offers')
+                .select('*, proposals(*, users(*)), investor:investor_id(*)')
+                .eq('id', offerId)
+                .maybeSingle();
+
+            if (offerErr) { console.error('[OfferDetail] offer fetch error:', offerErr); window.location.href = 'dashboard.html'; return; }
+            if (!o)       { console.error('[OfferDetail] offer not found:', offerId);    window.location.href = 'dashboard.html'; return; }
+
+            currentOffer = o;
+            console.log('[OfferDetail] initAudit → offer loaded | status:', o.status, '| proposal:', o.proposals?.title, '| investor:', o.investor?.full_name);
+            console.log('[OfferDetail] initAudit → proposal owner:', o.proposals?.user_id, '| viewer:', user.id);
+            console.log('[OfferDetail] initAudit → is founder:', user.id === o.proposals?.user_id, '| is investor:', user.id === o.investor_id);
+
+            // Header
+            document.getElementById('pitchTitle').textContent  = o.proposals?.title || 'Unknown Proposal';
+            document.getElementById('offerStatus').textContent = `STATUS: ${o.status.toUpperCase()}`;
+            document.getElementById('offerDate').textContent   = new Date(o.created_at).toLocaleString('en-GB');
+            document.getElementById('offerID').textContent     = o.id;
+
+            // Term comparison
+            const askAmt = parseFloat(o.proposals?.amount_needed || 0);
+            const offAmt = parseFloat(o.amount || 0);
+            const askEq  = parseFloat(o.proposals?.equity_offered || 0);
+            const offEq  = parseFloat(o.equity_percentage || 0);
+
+            document.getElementById('askAmount').textContent   = `₹${askAmt.toLocaleString('en-IN')}`;
+            document.getElementById('offerAmount').textContent = `₹${offAmt.toLocaleString('en-IN')}`;
+            document.getElementById('askEquity').textContent   = `${askEq}%`;
+            document.getElementById('offerEquity').textContent = `${offEq}%`;
+
+            const askVal = askEq > 0 ? Math.round(askAmt / (askEq / 100)) : 0;
+            const offVal = offEq > 0 ? Math.round(offAmt / (offEq / 100)) : 0;
+            document.getElementById('askVal').textContent  = `₹${askVal.toLocaleString('en-IN')}`;
+            document.getElementById('offerVal').textContent = `₹${offVal.toLocaleString('en-IN')}`;
+            console.log(`[OfferDetail] ask: ₹${askAmt} @ ${askEq}% → val ₹${askVal} | offer: ₹${offAmt} @ ${offEq}% → val ₹${offVal}`);
+
+            // Variance badges
+            const amtDiff   = offAmt - askAmt;
+            const amtDiffEl = document.getElementById('amountDiff');
+            amtDiffEl.textContent = (amtDiff >= 0 ? '+' : '-') + `₹${Math.abs(amtDiff).toLocaleString('en-IN')}`;
+            amtDiffEl.className   = `val-diff ${amtDiff >= 0 ? 'diff-plus' : 'diff-minus'}`;
+
+            const eqDiff   = offEq - askEq;
+            const eqDiffEl = document.getElementById('equityDiff');
+            if (eqDiffEl) {
+                eqDiffEl.textContent = (eqDiff >= 0 ? '+' : '') + eqDiff.toFixed(1) + '%';
+                // Less equity demanded = better for founder = green
+                eqDiffEl.className   = `val-diff ${eqDiff <= 0 ? 'diff-plus' : 'diff-minus'}`;
+            }
+
+            // Investor info
+            const investorName = o.investor?.full_name || 'Unknown Investor';
+            document.getElementById('sharkName').textContent   = investorName;
+            document.getElementById('sharkAvatar').textContent = investorName.charAt(0).toUpperCase();
+            console.log('[OfferDetail] investor:', investorName);
+
+            // Message
+            document.getElementById('offerMsg').textContent = o.message || 'Standard digital term sheet.';
+
+            // Decision bar — only founder sees it when pending
+            if (o.status === 'pending' && user.id === o.proposals?.user_id) {
+                console.log('[OfferDetail] showing decision bar to founder');
+                document.getElementById('decisionArea').classList.remove('hidden');
+            } else {
+                console.log('[OfferDetail] decision bar hidden — not founder or offer not pending');
+            }
+
+            console.log('[OfferDetail] initAudit → fully loaded ✅');
+        }
+
+        // ============================================================
+        // UPDATE OFFER STATUS
+        // Accept = 4-step transaction with full error handling
+        // Reject = 1-step simple update
+        //
+        // STEP 1: Mark offer as accepted
+        // STEP 2: Create deal record
+        // STEP 3: Log funding transaction
+        // STEP 4: Notify investor
+        //
+        // Each step is logged individually. If a step fails the user
+        // is shown exactly what happened and what is/isn't consistent.
+        // ============================================================
+        async function updateOfferStatus(action) {
+            console.log('[OfferDetail] updateOfferStatus → action:', action);
+
+            if (!confirm(`CONFIRM: Are you sure you want to ${action} these terms?`)) {
+                console.log('[OfferDetail] updateOfferStatus → cancelled by user');
+                return;
+            }
+
+            if (!currentOffer) {
+                console.error('[OfferDetail] updateOfferStatus → currentOffer is null');
+                showTxnError('Offer data not loaded. Please refresh the page.');
+                return;
+            }
+
+            // Lock both buttons
+            lockButtons();
+
+            // ── REJECT: single step ──
+            if (action === 'rejected') {
+                console.log('[OfferDetail] REJECT → updating offer status...');
+                showTxnBlock('loading', 'Declining terms...');
+
+                const { error } = await supabase.from('offers').update({ status: 'rejected' }).eq('id', offerId);
+
+                if (error) {
+                    console.error('[OfferDetail] REJECT → error:', error);
+                    showTxnBlock('error', '⚠ Decline failed: ' + error.message);
+                    unlockButtons();
+                    return;
+                }
+
+                console.log('[OfferDetail] REJECT → offer rejected ✅');
+
+                // Notify investor their offer was declined
+                console.log('[OfferDetail] REJECT → notifying investor:', currentOffer.investor_id);
+                const { error: notifErr } = await supabase.from('notifications').insert({
+                    user_id: currentOffer.investor_id,
+                    title:   '❌ Offer Declined',
+                    message: `Your offer of ₹${parseFloat(currentOffer.amount).toLocaleString('en-IN')} for "${currentOffer.proposals?.title}" was declined by the founder.`,
+                    type:    'offer',
+                    link:    `offer-detail.html?id=${offerId}`
+                });
+                if (notifErr) console.warn('[OfferDetail] REJECT → notification failed (non-fatal):', notifErr);
+                else console.log('[OfferDetail] REJECT → investor notified ✅');
+
+                showTxnBlock('success', '✅ Terms declined. Offer marked as rejected.');
+                setTimeout(() => window.location.reload(), 2000);
+                return;
+            }
+
+            // ── ACCEPT: 4-step transaction ──
+            console.log('[OfferDetail] ACCEPT → beginning 4-step transaction...');
+
+            renderSteps([
+                { id: 's1', label: 'Authorizing offer terms',    state: 'running'  },
+                { id: 's2', label: 'Creating deal record',       state: 'pending'  },
+                { id: 's3', label: 'Logging funding transaction', state: 'pending'  },
+                { id: 's4', label: 'Notifying investor',         state: 'pending'  },
+            ]);
+
+            // STEP 1 — mark offer accepted
+            console.log('[OfferDetail] STEP 1 → updating offer to accepted...');
+            const { error: offerErr } = await supabase
+                .from('offers')
+                .update({ status: 'accepted' })
+                .eq('id', offerId);
+
+            if (offerErr) {
+                console.error('[OfferDetail] STEP 1 FAILED:', offerErr.message, '| code:', offerErr.code, '| hint:', offerErr.hint);
+                setStep('s1', 'error');
+                appendTxnMsg('error', `⚠ Step 1 failed: ${offerErr.message}\n\nNothing was changed. Please try again.`);
+                unlockButtons();
+                return;
+            }
+            console.log('[OfferDetail] STEP 1 ✅ — offer accepted');
+            setStep('s1', 'done');
+            setStep('s2', 'running');
+
+            // STEP 2 — insert deal record
+            const dealPayload = {
+                offer_id:          offerId,
+                proposal_id:       currentOffer.proposal_id,
+                entrepreneur_id:   currentOffer.proposals?.user_id,
+                investor_id:       currentOffer.investor_id,
+                investment_amount: currentOffer.amount,
+                equity_percentage: currentOffer.equity_percentage,
+            };
+            console.log('[OfferDetail] STEP 2 → inserting deal:', dealPayload);
+
+            const { data: newDeal, error: dealErr } = await supabase
+                .from('deals')
+                .insert(dealPayload)
+                .select()
+                .maybeSingle();
+
+            if (dealErr) {
+                console.error('[OfferDetail] STEP 2 FAILED:', dealErr.message, '| code:', dealErr.code, '| hint:', dealErr.hint);
+                console.warn('[OfferDetail] STEP 2 ⚠ INCONSISTENCY — offer is accepted but no deal record created. Offer ID:', offerId);
+                setStep('s2', 'error');
+                appendTxnMsg('error',
+                    `⚠ Step 2 failed: ${dealErr.message}\n\n` +
+                    `The offer was marked accepted but the deal record was not created.\n` +
+                    `Please contact your administrator. Offer ID: ${offerId}`
+                );
+                unlockButtons();
+                return;
+            }
+            console.log('[OfferDetail] STEP 2 ✅ — deal created | deal id:', newDeal?.id);
+            setStep('s2', 'done');
+            setStep('s3', 'running');
+
+            // STEP 3 — funding log (non-fatal if fails)
+            const logPayload = {
+                proposal_id:  currentOffer.proposal_id,
+                investor_id:  currentOffer.investor_id,
+                amount:       currentOffer.amount,
+                equity_given: currentOffer.equity_percentage,
+            };
+            console.log('[OfferDetail] STEP 3 → inserting funding log:', logPayload);
+
+            const { error: logErr } = await supabase.from('funding_logs').insert(logPayload);
+
+            if (logErr) {
+                console.warn('[OfferDetail] STEP 3 non-fatal failure:', logErr.message, '| deal and offer are fine — only funding_log missing');
+                setStep('s3', 'error');
+            } else {
+                console.log('[OfferDetail] STEP 3 ✅ — funding log created');
+                setStep('s3', 'done');
+            }
+            setStep('s4', 'running');
+
+            // STEP 4 — notify investor (non-fatal if fails)
+            console.log('[OfferDetail] STEP 4 → notifying investor:', currentOffer.investor_id);
+            const { error: notifErr } = await supabase.from('notifications').insert({
+                user_id: currentOffer.investor_id,
+                title:   '🎉 Your Offer Was Accepted!',
+                message: `Your offer of ₹${parseFloat(currentOffer.amount).toLocaleString('en-IN')} for "${currentOffer.proposals?.title}" has been accepted. A deal has been created.`,
+                type:    'offer',
+                link:    `offer-detail.html?id=${offerId}`
+            });
+
+            if (notifErr) {
+                console.warn('[OfferDetail] STEP 4 non-fatal failure:', notifErr.message);
+                setStep('s4', 'error');
+            } else {
+                console.log('[OfferDetail] STEP 4 ✅ — investor notified');
+                setStep('s4', 'done');
+            }
+
+            // Done
+            const warnings = (logErr ? '\n⚠ Funding log had an issue — notify admin.' : '') +
+                             (notifErr ? '\n⚠ Investor notification failed.' : '');
+            console.log('[OfferDetail] accept flow complete ✅' + warnings);
+            appendTxnMsg('success', `✅ Deal authorized and finalized!${warnings}\n\nRedirecting to dashboard...`);
+            setTimeout(() => { window.location.href = 'dashboard.html'; }, 2500);
+        }
+
+        // ============================================================
+        // TRANSACTION UI HELPERS
+        // ============================================================
+        function renderSteps(steps) {
+            const el = document.getElementById('txnStatus');
+            if (!el) return;
+            el.style.display    = 'block';
+            el.style.background = '#f8fafc';
+            el.style.border     = '1px solid var(--shark-border)';
+            el.style.color      = 'inherit';
+            el.innerHTML = steps.map(s => `
+                <div class="txn-step" id="row_${s.id}">
+                    <div class="step-icon step-${s.state}" id="icon_${s.id}">
+                        ${s.state === 'running' ? '…' : s.state === 'done' ? '✓' : s.state === 'error' ? '✕' : '○'}
+                    </div>
+                    <span id="lbl_${s.id}" style="color:${s.state === 'running' ? '#1d4ed8' : '#64748b'};">${s.label}</span>
+                </div>`).join('');
+        }
+
+        function setStep(stepId, state) {
+            const icon = document.getElementById(`icon_${stepId}`);
+            const lbl  = document.getElementById(`lbl_${stepId}`);
+            if (!icon || !lbl) return;
+            const icons   = { pending:'○', running:'…', done:'✓', error:'✕' };
+            const colors  = { pending:'#94a3b8', running:'#1d4ed8', done:'#15803d', error:'#b91c1c' };
+            icon.className   = `step-icon step-${state}`;
+            icon.textContent = icons[state] || '○';
+            lbl.style.color  = colors[state] || '#64748b';
+        }
+
+        function appendTxnMsg(type, message) {
+            const el = document.getElementById('txnStatus');
+            if (!el) return;
+            const colors = {
+                success: { bg:'#dcfce7', color:'#15803d', border:'1px solid #86efac' },
+                error:   { bg:'#fee2e2', color:'#b91c1c', border:'1px solid #fca5a5' },
+            };
+            const c = colors[type] || colors.error;
+            const div = document.createElement('div');
+            div.style.cssText = `margin-top:14px;padding:14px 16px;border-radius:14px;background:${c.bg};color:${c.color};border:${c.border};font-size:.82rem;white-space:pre-line;font-weight:700;`;
+            div.textContent = message;
+            el.appendChild(div);
+        }
+
+        function showTxnBlock(type, message) {
+            const el = document.getElementById('txnStatus');
+            if (!el) return;
+            const colors = {
+                loading: { bg:'#dbeafe', color:'#1d4ed8', border:'1px solid #93c5fd' },
+                success: { bg:'#dcfce7', color:'#15803d', border:'1px solid #86efac' },
+                error:   { bg:'#fee2e2', color:'#b91c1c', border:'1px solid #fca5a5' },
+            };
+            const c = colors[type] || colors.error;
+            el.style.display    = 'block';
+            el.style.background = c.bg;
+            el.style.color      = c.color;
+            el.style.border     = c.border;
+            el.style.whiteSpace = 'pre-line';
+            el.style.fontWeight = '700';
+            el.textContent      = message;
+        }
+
+        function lockButtons() {
+            const a = document.getElementById('acceptBtn');
+            const r = document.getElementById('rejectBtn');
+            if (a) { a.disabled = true; a.textContent = 'Processing...'; }
+            if (r)   r.disabled = true;
+        }
+
+        function unlockButtons() {
+            const a = document.getElementById('acceptBtn');
+            const r = document.getElementById('rejectBtn');
+            if (a) { a.disabled = false; a.textContent = 'Authorize & Close Deal'; }
+            if (r) { r.disabled = false; r.textContent = 'Decline Terms'; }
+        }
+
+        // ============================================================
+        // OPEN CHAT
+        // ============================================================
+        async function openChat() {
+            if (!currentOffer || !currentUser) { window.location.href = 'chat.html'; return; }
+            console.log('[OfferDetail] openChat → finding room for proposal:', currentOffer.proposal_id, '+ investor:', currentOffer.investor_id);
+            try {
+                const { data: room, error } = await supabase
+                    .from('chat_rooms')
+                    .select('id')
+                    .eq('proposal_id', currentOffer.proposal_id)
+                    .eq('investor_id', currentOffer.investor_id)
+                    .maybeSingle();
+
+                if (error) console.warn('[OfferDetail] openChat → room lookup error:', error);
+
+                if (room) {
+                    console.log('[OfferDetail] openChat → room found:', room.id);
+                    window.location.href = `chat.html?room=${room.id}`;
+                } else {
+                    console.log('[OfferDetail] openChat → no room found, going to chat list');
+                    window.location.href = 'chat.html';
+                }
+            } catch (err) {
+                console.error('[OfferDetail] openChat → error:', err);
+                window.location.href = 'chat.html';
+            }
+        }
+
+        // ============================================================
+        // BOOT
+        // ============================================================
+        window.onload = initAudit;
+        console.log('[OfferDetail] Script parsed, waiting for window.onload...');
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manifest Asset | Sovereign Hub</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* --- TRINITY NAV OVERRIDES --- */
+        .trinity-nav {
+            background: var(--shark-obsidian);
+            height: 80px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky; top: 0; z-index: 5000;
+        }
+        .nav-left { display: flex; justify-content: flex-start; }
+        .nav-center { display: flex; justify-content: center; }
+        .nav-right { display: flex; justify-content: flex-end; }
+        
+        .back-btn { 
+            color: #94a3b8; text-decoration: none; font-weight: 700; font-size: 0.75rem; 
+            text-transform: uppercase; letter-spacing: 2px; transition: 0.3s; 
+        }
+        .back-btn:hover { color: white; transform: translateX(-5px); }
+
+        .central-statement { 
+            color: white; font-weight: 800; text-transform: uppercase; letter-spacing: 4px; 
+            font-size: 0.7rem; opacity: 0.7; margin: 0; text-align: center; 
+            border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); 
+            padding: 0 30px; 
+        }
+
+        /* --- MANIFEST LAYOUT --- */
+        .manifest-layout { 
+            max-width: 1000px; 
+            margin: -6rem auto 100px; 
+            padding: 0 2rem; 
+            position: relative;
+            z-index: 20;
+        }
+
+        .form-section { margin-bottom: 4rem; }
+        
+        .section-tag { 
+            font-family: 'JetBrains Mono', monospace; 
+            color: var(--shark-indigo); 
+            font-size: 0.7rem; 
+            font-weight: 800; 
+            letter-spacing: 3px; 
+            display: block; 
+            margin-bottom: 12px; 
+            text-transform: uppercase;
+        }
+
+        .section-title { 
+            font-size: 2rem; 
+            font-weight: 900; 
+            letter-spacing: -1.5px; 
+            margin-bottom: 2.5rem; 
+            color: var(--shark-obsidian); 
+            border-bottom: 1px solid var(--shark-border); 
+            padding-bottom: 20px; 
+        }
+
+        /* Forensic Inputs */
+        .f-input-group { margin-bottom: 2rem; }
+        .f-label { font-size: 0.65rem; font-weight: 800; color: var(--shark-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 12px; display: block; }
+        .f-field { 
+            width: 100%; background: #f8fafc; border: 2px solid var(--shark-border); padding: 20px 24px; 
+            border-radius: 20px; font-size: 1rem; font-weight: 600; color: var(--shark-obsidian);
+            font-family: inherit; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        .f-field:focus { outline: none; border-color: var(--shark-indigo); background: white; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.08); }
+
+        .input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        
+        .submit-bar {
+            display: grid; grid-template-columns: 1fr 2fr; gap: 15px;
+            margin-top: 4rem; padding-top: 3rem; border-top: 1px solid var(--shark-border);
+        }
+
+        .status-badge {
+            color: var(--shark-emerald); font-weight: 900; font-size: 0.6rem; 
+            border: 1px solid var(--shark-emerald); padding: 4px 10px; border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TRINITY NAV -->
+    <nav class="trinity-nav">
+        <div class="nav-left"><a href="dashboard.html" class="back-btn">← Back to Dashboard</a></div>
+        <div class="nav-center"><h2 class="central-statement">Money can't buy happiness, isn't it?</h2></div>
+        <div class="nav-right">
+             <span class="status-badge">SECURE_MANIFEST_v2</span>
+        </div>
+    </nav>
+
+    <!-- HEADER -->
+    <header class="dashboard-header">
+        <div class="header-inner">
+            <div>
+                <span style="font-size: 0.7rem; font-weight: 800; letter-spacing: 4px; color: var(--shark-indigo); text-transform: uppercase; display: block; margin-bottom: 10px;">Venture Initiation</span>
+                <h1 class="welcome-text">Manifest Business Asset</h1>
+                <p style="opacity: 0.6; font-weight: 500; max-width: 600px;">Deploy your business forensics to the public ledger. High-conviction capital starts with total transparency.</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN FORM -->
+    <main class="manifest-layout">
+        <form id="proposalForm" class="card" style="padding: 4rem; border-radius: 50px;">
+            
+            <!-- SECTION 1 -->
+            <div class="form-section">
+                <span class="section-tag">01 // Identity & Brand</span>
+                <h2 class="section-title">Core Identity</h2>
+                <div class="f-input-group">
+                    <label class="f-label">Official Business Title</label>
+                    <input type="text" id="title" class="f-field" required placeholder="e.g. Nexus Cybernetics">
+                </div>
+                <div class="f-input-group">
+                    <label class="f-label">Mission Tagline</label>
+                    <input type="text" id="tagline" class="f-field" required placeholder="A short, aggressive statement of purpose">
+                </div>
+                <div class="input-grid">
+                    <div class="f-input-group">
+                        <label class="f-label">Industry Sector</label>
+                        <select id="category" class="f-field" required>
+                            <option value="" disabled selected>Select Sector...</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Healthcare">Healthcare</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Consumer">Consumer</option>
+                            <option value="Energy">Energy</option>
+                        </select>
+                    </div>
+                    <div class="f-input-group">
+                        <label class="f-label">Operational Base (Location)</label>
+                        <input type="text" id="location" class="f-field" required placeholder="City, State">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2 -->
+            <div class="form-section">
+                <span class="section-tag">02 // Capital Architecture</span>
+                <h2 class="section-title">Financial Ask</h2>
+                <div class="input-grid">
+                    <div class="f-input-group">
+                        <label class="f-label">Target Funding (₹)</label>
+                        <input type="number" id="amount_needed" class="f-field" required placeholder="500,000">
+                    </div>
+                    <div class="f-input-group">
+                        <label class="f-label">Equity Stake Offered (%)</label>
+                        <input type="number" id="equity_offered" step="0.1" class="f-field" required placeholder="10.0">
+                    </div>
+                </div>
+                <div class="input-grid">
+                    <div class="f-input-group">
+                        <label class="f-label">Business Maturity</label>
+                        <select id="business_stage" class="f-field" required>
+                            <option value="Idea">Idea Phase</option>
+                            <option value="Prototype">Prototype / MVP</option>
+                            <option value="Early Stage">Early Stage (Revenue)</option>
+                            <option value="Growth">Growth / Scaling</option>
+                        </select>
+                    </div>
+                    <div class="f-input-group">
+                        <label class="f-label">Verified Annual Revenue (₹)</label>
+                        <input type="number" id="revenue" class="f-field" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3 -->
+            <div class="form-section">
+                <span class="section-tag">03 // Forensic Narrative</span>
+                <h2 class="section-title">The Pitch</h2>
+                <div class="f-input-group">
+                    <label class="f-label">Executive Summary</label>
+                    <textarea id="description" class="f-field" rows="10" required placeholder="Detail the problem and your solution..."></textarea>
+                </div>
+                <div class="input-grid">
+                    <div class="f-input-group">
+                        <label class="f-label">Pitch Deck (Secure URL)</label>
+                        <input type="url" id="pitch_deck_url" class="f-field" placeholder="https://drive.google.com/...">
+                    </div>
+                    <div class="f-input-group">
+                        <label class="f-label">Video Pitch (Secure URL)</label>
+                        <input type="url" id="video_pitch_url" class="f-field" placeholder="https://youtube.com/...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTION BAR -->
+            <div class="submit-bar">
+                <button type="button" onclick="window.history.back()" class="btn btn-outline">Abort Manifest</button>
+                <button type="submit" id="submitBtn" class="btn btn-primary">Initialize Audit & Deploy</button>
+            </div>
+        </form>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script>
+        let currentUserId = null;
+        async function initManifest() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return window.location.href = 'auth.html';
+            currentUserId = user.id;
+        }
+
+        document.getElementById('proposalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'TRANSMITTING...';
+
+            const payload = {
+                user_id: currentUserId,
+                title: document.getElementById('title').value,
+                tagline: document.getElementById('tagline').value,
+                category: document.getElementById('category').value,
+                location: document.getElementById('location').value,
+                amount_needed: parseFloat(document.getElementById('amount_needed').value),
+                equity_offered: parseFloat(document.getElementById('equity_offered').value),
+                business_stage: document.getElementById('business_stage').value,
+                revenue: parseFloat(document.getElementById('revenue').value) || 0,
+                description: document.getElementById('description').value,
+                pitch_deck_url: document.getElementById('pitch_deck_url').value,
+                video_pitch_url: document.getElementById('video_pitch_url').value,
+                status: 'pending', verified: false
+            };
+
+            try {
+                const { error } = await supabase.from('proposals').insert([payload]);
+                if (error) throw error;
+                alert('SUCCESS: Asset awaiting audit.');
+                window.location.href = 'dashboard.html';
+            } catch (err) {
+                alert('ERROR: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'Initialize Audit & Deploy';
+            }
+        });
+        window.onload = initManifest;
+    </script>
+</body>
+</html>

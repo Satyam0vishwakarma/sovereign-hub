@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sovereign Ledger | MicroSharks Forensics</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* --- TRINITY NAV --- */
+        .trinity-nav {
+            background: var(--shark-obsidian);
+            height: 80px;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            align-items: center;
+            padding: 0 40px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            position: sticky; top: 0; z-index: 1000;
+        }
+        .nav-left, .nav-center, .nav-right { display: flex; align-items: center; }
+        .nav-center { justify-content: center; }
+        .nav-right { justify-content: flex-end; }
+        .back-btn { color: #94a3b8; text-decoration: none; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .central-statement { color: white; font-weight: 800; text-transform: uppercase; letter-spacing: 6px; font-size: 0.75rem; opacity: 0.8; margin: 0; border-left: 1px solid rgba(255,255,255,0.2); border-right: 1px solid rgba(255,255,255,0.2); padding: 0 30px; text-align: center; }
+
+        /* --- DATA HEADER --- */
+        .ledger-header {
+            background: var(--shark-obsidian);
+            padding: 8rem 2rem 12rem;
+            text-align: center;
+            color: white;
+            border-radius: 0 0 80px 80px;
+            background-image: radial-gradient(circle at 100% 100%, rgba(99, 102, 241, 0.15) 0%, transparent 40%);
+        }
+
+        /* --- THE FORENSIC GRID --- */
+        .ledger-layout {
+            max-width: 1500px;
+            margin: -7rem auto 100px;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 3rem;
+            padding: 0 40px;
+        }
+
+        /* --- THE ENHANCED TRANSACTION CARD --- */
+        .forensic-card {
+            background: white;
+            border-radius: 40px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid #f1f5f9;
+            display: grid;
+            grid-template-columns: 150px 1fr 220px;
+            gap: 25px;
+            align-items: center;
+            transition: 0.4s;
+            cursor: pointer;
+        }
+        .forensic-card:hover { transform: translateY(-8px); border-color: var(--shark-indigo); box-shadow: 0 30px 60px rgba(0,0,0,0.05); }
+
+        .f-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: #94a3b8; line-height: 1.8; }
+        .f-info h3 { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 5px; color: var(--shark-obsidian); }
+        .f-financials { text-align: right; border-left: 1px solid #f1f5f9; padding-left: 25px; }
+        
+        .val-pill { background: #f8fafc; padding: 4px 10px; border-radius: 6px; font-size: 0.6rem; font-weight: 800; color: var(--shark-indigo); text-transform: uppercase; }
+        .amt-text { display: block; font-size: 1.5rem; font-weight: 900; margin-top: 5px; }
+        .gain { color: var(--shark-emerald); }
+        .loss { color: var(--shark-crimson); }
+
+        /* --- THE LIQUIDITY SIDEBAR --- */
+        .liquidity-sidebar {
+            background: white; border-radius: 45px; padding: 3rem; border: 1px solid var(--shark-border); height: fit-content; position: sticky; top: 110px;
+        }
+        .sidebar-heading { font-size: 0.7rem; font-weight: 900; color: var(--shark-indigo); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2rem; display: block; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; }
+        .mini-stat { margin-bottom: 25px; }
+        .mini-label { font-size: 0.6rem; font-weight: 800; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 5px; }
+        .mini-val { font-size: 1.2rem; font-weight: 900; color: var(--shark-obsidian); }
+
+        /* --- NEURAL MODAL --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(2, 6, 23, 0.95); display: none; 
+            align-items: center; justify-content: center; z-index: 9999;
+            backdrop-filter: blur(10px);
+        }
+        .audit-modal {
+            background: white; width: 90%; max-width: 600px; 
+            border-radius: 50px; padding: 4rem; position: relative;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.5);
+        }
+        .modal-id { font-family: 'JetBrains Mono'; font-size: 0.6rem; background: #f1f5f9; padding: 10px; border-radius: 10px; display: block; word-break: break-all; margin-top: 5px; }
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px; }
+        .close-btn { position: absolute; top: 30px; right: 30px; cursor: pointer; font-size: 0.8rem; font-weight: 900; color: #94a3b8; text-transform: uppercase; border: 1px solid #e2e8f0; padding: 5px 15px; border-radius: 50px; }
+        .close-btn:hover { background: var(--shark-obsidian); color: white; }
+    </style>
+</head>
+<body>
+
+    <nav class="trinity-nav">
+        <div class="nav-left"><a href="dashboard.html" class="back-btn">← Dashboard</a></div>
+        <div class="nav-center"><h2 class="central-statement">Audit Everything. Trust No One.</h2></div>
+        <div class="nav-right"><span style="color:var(--shark-emerald); font-size:0.6rem; font-weight:900; letter-spacing:1px;">SECURITY: HIGH</span></div>
+    </nav>
+
+    <header class="ledger-header">
+        <h1 style="font-size: 4rem; font-weight: 900; letter-spacing: -3px; margin: 10px 0;">The Sovereign Ledger</h1>
+        <p style="opacity: 0.5; font-size: 1.1rem; font-weight: 500;">Click any record node to reveal full transaction forensics.</p>
+    </header>
+
+    <main class="ledger-layout">
+        <div id="ledgerNodes"></div>
+        <aside class="liquidity-sidebar">
+            <span class="sidebar-heading">Neural Liquidity Map</span>
+            <div class="mini-stat"><span class="mini-label">Total Volume</span><div class="mini-val" id="totalVolume">₹0</div></div>
+            <div class="mini-stat"><span class="mini-label">Mean Valuation</span><div class="mini-val" id="meanValuation">₹0</div></div>
+            <div style="margin-top: 3rem; padding: 25px; background: var(--shark-obsidian); border-radius: 30px; color: white;">
+                <span style="font-size: 0.55rem; font-weight: 800; opacity: 0.6; text-transform: uppercase;">Audit Reliability</span>
+                <div style="font-size: 1.5rem; font-weight: 900; color: var(--shark-emerald);">99.9%</div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- THE NEURAL MODAL -->
+    <div id="auditModal" class="modal-overlay" onclick="closeAudit()">
+        <div class="audit-modal" onclick="event.stopPropagation()">
+            <div class="close-btn" onclick="closeAudit()">Close [Esc]</div>
+            <span style="font-size: 0.7rem; font-weight: 900; color: var(--shark-indigo); text-transform: uppercase; letter-spacing: 2px;">Venture Receipt Forensics</span>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        let me = null; let allLogs = [];
+
+        async function init() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if(!user) return window.location.href = 'auth.html';
+            me = user.id;
+
+            const [investorLogs, founderLogs] = await Promise.all([
+                supabase.from('funding_logs').select('*, proposals(title, category, user_id, entrepreneur:user_id(full_name)), investor:investor_id(full_name)').eq('investor_id', me),
+                supabase.from('funding_logs').select('*, proposals!inner(title, category, user_id, entrepreneur:user_id(full_name)), investor:investor_id(full_name)').eq('proposals.user_id', me)
+            ]);
+
+            allLogs = Array.from(new Map([...(investorLogs.data || []), ...(founderLogs.data || [])].map(item => [item.id, item])).values())
+                .sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+
+            render(allLogs);
+        }
+
+        function render(list) {
+            const container = document.getElementById('ledgerNodes');
+            let volume = 0; let valSum = 0;
+            if(!list.length) { container.innerHTML = `<p style="opacity:0.3; text-align:center;">VAULT EMPTY</p>`; return; }
+
+            container.innerHTML = list.map(l => {
+                const amount = parseFloat(l.amount);
+                const val = amount / (parseFloat(l.equity_given || 1) / 100);
+                volume += amount; valSum += val;
+                const isOut = l.investor_id === me;
+
+                return `
+                <div class="forensic-card" onclick="viewAudit('${l.id}')">
+                    <div class="f-meta">TIMESTAMP<br><span style="color:var(--shark-obsidian); font-weight:800;">${new Date(l.transaction_date).toLocaleDateString()}</span><br><br>TXN_REF<br><span style="color:var(--shark-obsidian);">${l.id.substring(0,8).toUpperCase()}</span></div>
+                    <div class="f-info"><h3>${l.proposals.title}</h3><span style="background:#f1f5f9; padding:4px 12px; border-radius:50px; font-size:0.6rem; font-weight:800; color:var(--shark-muted);">${l.proposals.category.toUpperCase()}</span></div>
+                    <div class="f-financials"><span class="val-pill">VAL: ₹${new Number(val).toLocaleString('en-IN')}</span><span class="amt-text ${isOut ? 'loss' : 'gain'}">${isOut ? '-' : '+'} ₹${amount.toLocaleString('en-IN')}</span></div>
+                </div>`;
+            }).join('');
+
+            document.getElementById('totalVolume').textContent = `₹${volume.toLocaleString('en-IN')}`;
+            document.getElementById('meanValuation').textContent = `₹${(valSum / list.length).toLocaleString('en-IN', {maximumFractionDigits:0})}`;
+        }
+
+        function viewAudit(id) {
+            const l = allLogs.find(x => x.id === id);
+            const amount = parseFloat(l.amount);
+            const val = amount / (parseFloat(l.equity_given || 1) / 100);
+            const isOut = l.investor_id === me;
+
+            document.getElementById('modalContent').innerHTML = `
+                <h1 style="font-size: 3rem; font-weight: 900; letter-spacing: -2px; margin: 15px 0 30px; line-height: 1;">${l.proposals.title}</h1>
+                <div style="background: var(--shark-obsidian); padding: 40px; border-radius: 35px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                    <div><span style="font-size:0.6rem; opacity:0.6; font-weight:800; text-transform:uppercase;">Finalized Capital</span><div style="font-size:2.5rem; font-weight:900; color:${isOut ? 'var(--shark-crimson)' : 'var(--shark-emerald)'};">${isOut ? '-' : '+'} ₹${amount.toLocaleString('en-IN')}</div></div>
+                    <div style="text-align:right;"><span style="font-size:0.6rem; opacity:0.6; font-weight:800; text-transform:uppercase;">Equity Transferred</span><div style="font-size:2.5rem; font-weight:900;">${l.equity_given}%</div></div>
+                </div>
+                <div class="data-grid">
+                    <div><span class="mini-label">Implied Valuation</span><div class="mini-val" style="color:var(--shark-indigo);">₹${val.toLocaleString('en-IN')}</div></div>
+                    <div><span class="mini-label">Precise Date-Time</span><div class="mini-val">${new Date(l.transaction_date).toLocaleString()}</div></div>
+                    <div style="grid-column: 1/-1;"><span class="mini-label">Counterparty Entities</span>
+                        <div style="margin-top:10px; display:flex; gap:20px;">
+                            <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px;"><span class="mini-label">Investor</span><strong style="font-size:0.8rem;">${l.investor.full_name}</strong><code class="modal-id">${l.investor_id}</code></div>
+                            <div style="flex:1; background:#f8fafc; padding:15px; border-radius:15px;"><span class="mini-label">Founder</span><strong style="font-size:0.8rem;">${l.proposals.entrepreneur.full_name}</strong><code class="modal-id">${l.proposals.user_id}</code></div>
+                        </div>
+                    </div>
+                    <div style="grid-column: 1/-1;"><span class="mini-label">Audit Hash (System ID)</span><code class="modal-id">${l.id}</code></div>
+                </div>
+            `;
+            document.getElementById('auditModal').style.display = 'flex';
+        }
+
+        function closeAudit() { document.getElementById('auditModal').style.display = 'none'; }
+        window.onload = init;
+    </script>
+</body>
+</html>
