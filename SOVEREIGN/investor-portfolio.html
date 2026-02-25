@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sovereign Portfolio | Sovereign Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <style>
+        /* ── NAV ── */
+        .trinity-nav {
+            background: var(--shark-obsidian);
+            height: 72px; display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            align-items: center; padding: 0 32px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            position: sticky; top: 0; z-index: 5000;
+        }
+        .nav-left  { display:flex; justify-content:flex-start; }
+        .nav-right { display:flex; justify-content:flex-end; align-items:center; gap:14px; }
+        .nav-center { display:flex; justify-content:center; overflow:hidden; }
+        .nav-q { color:white; font-weight:700; text-transform:uppercase; letter-spacing:5px; font-size:.58rem; opacity:.4; text-align:center; transition:opacity .3s; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .btn-ret {
+            background:rgba(255,255,255,0.05); border:1.5px solid rgba(255,255,255,0.1);
+            color:#94a3b8; text-decoration:none; padding:8px 16px; border-radius:10px;
+            font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; transition:.25s;
+        }
+        .btn-ret:hover { background:var(--shark-indigo); color:white; transform:translateX(-3px); }
+        .c-node { width:36px; height:36px; position:relative; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+        .s-core  { width:8px; height:8px; background:white; border-radius:50%; box-shadow:0 0 10px #fff,0 0 22px var(--shark-indigo); z-index:5; }
+        .o-ring  { position:absolute; width:100%; height:100%; border:1px solid rgba(99,102,241,0.3); border-radius:50%; animation:orb 10s linear infinite; }
+        @keyframes orb { to { transform:rotate(360deg); } }
+
+        /* ── HEADER ── */
+        .page-header {
+            background: var(--shark-obsidian);
+            background-image:
+                radial-gradient(ellipse at 88% 5%, rgba(99,102,241,0.22) 0%, transparent 52%),
+                radial-gradient(ellipse at 5% 95%, rgba(16,185,129,0.07) 0%, transparent 48%);
+            padding: 4.5rem 0 9.5rem;
+            position: relative; overflow: hidden;
+        }
+        .page-header::before {
+            content:''; position:absolute; inset:0;
+            background-image: linear-gradient(rgba(99,102,241,0.03) 1px,transparent 1px),
+                              linear-gradient(90deg,rgba(99,102,241,0.03) 1px,transparent 1px);
+            background-size:52px 52px;
+            mask-image:radial-gradient(ellipse at 50% 50%,black 10%,transparent 70%);
+            pointer-events:none;
+        }
+        .ph-inner { max-width:1380px; margin:0 auto; padding:0 36px; display:flex; justify-content:space-between; align-items:flex-end; gap:2rem; }
+        .ph-left { flex:1; }
+        .ph-eyebrow { font-size:.56rem; font-weight:900; letter-spacing:5px; color:var(--shark-indigo); text-transform:uppercase; margin-bottom:10px; display:block; }
+        .ph-title { font-size:3.2rem; font-weight:900; letter-spacing:-3px; color:white; line-height:1; margin-bottom:.7rem; }
+        .ph-sub   { color:rgba(255,255,255,0.38); font-weight:600; font-size:.83rem; line-height:1.6; max-width:400px; margin-bottom:1.8rem; }
+
+        /* Pills */
+        .ph-pills { display:flex; gap:10px; flex-wrap:wrap; }
+        .ph-pill  { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); border-radius:14px; padding:12px 18px; text-align:center; min-width:88px; }
+        .ph-val   { font-size:1.3rem; font-weight:900; color:white; letter-spacing:-1px; display:block; line-height:1; }
+        .ph-lbl   { font-size:.48rem; font-weight:800; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:1.5px; margin-top:5px; display:block; }
+        .ph-pill.g  { background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.25); }  .ph-pill.g .ph-val  { color:#6ee7b7; }
+        .ph-pill.i  { background:rgba(99,102,241,0.15); border-color:rgba(99,102,241,0.3);  }  .ph-pill.i .ph-val  { color:#a5b4fc; }
+        .ph-pill.y  { background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.25); }  .ph-pill.y .ph-val  { color:#fcd34d; }
+
+        /* ── LAYOUT ── */
+        .pf-layout {
+            max-width: 1380px;
+            margin: -5rem auto 6rem;
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 1.8rem;
+            padding: 0 20px;
+        }
+
+        /* ── SECTION LABEL ── */
+        .sec-lbl { font-size:.56rem; font-weight:900; text-transform:uppercase; letter-spacing:3px; color:#94a3b8; margin-bottom:.9rem; margin-top:0; display:flex; align-items:center; gap:10px; }
+        .sec-lbl + .sec-lbl { margin-top:2rem; }
+        .sec-lbl::after { content:''; flex:1; height:1px; background:var(--shark-border); }
+
+        /* ── ASSET CARD ── */
+        .asset-card {
+            background: white;
+            border-radius: 20px;
+            border: 1px solid var(--shark-border);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            margin-bottom: .9rem;
+            overflow: hidden;
+            transition: .26s cubic-bezier(0.23,1,0.32,1);
+            cursor: pointer;
+        }
+        .asset-card:hover { transform:translateY(-4px); border-color:rgba(99,102,241,0.28); box-shadow:0 14px 32px rgba(99,102,241,0.09); }
+        .asset-card:last-child { margin-bottom:0; }
+
+        .ac-bar   { height:3px; background:linear-gradient(90deg,#6366f1,#818cf8); }
+        .ac-inner { padding:1.7rem; }
+        .ac-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:.9rem; }
+        .ac-code { font-family:'JetBrains Mono',monospace; font-size:.55rem; font-weight:700; color:#6366f1; background:#f5f3ff; padding:3px 10px; border-radius:7px; border:1px solid #e0e7ff; }
+        .ac-date { font-size:.6rem; color:#94a3b8; font-weight:700; }
+        .ac-title { font-size:1.25rem; font-weight:900; letter-spacing:-.03em; color:var(--shark-obsidian); margin-bottom:.25rem; line-height:1.2; }
+        .ac-cat   { font-size:.7rem; color:#64748b; font-weight:700; margin-bottom:1rem; }
+
+        /* Stat nodes */
+        .ac-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:1rem; }
+        .ac-node  { border-radius:12px; padding:11px 13px; }
+        .ac-node.g { background:#f0fdf4; border:1px solid #d1fae5; }
+        .ac-node.y { background:#fefce8; border:1px solid #fef08a; }
+        .ac-node.i { background:#f5f3ff; border:1px solid #e0e7ff; }
+        .ac-lbl { font-size:.48rem; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; display:block; margin-bottom:3px; }
+        .ac-node.g .ac-lbl { color:#059669; } .ac-node.g .ac-val { color:#065f46; }
+        .ac-node.y .ac-lbl { color:#b45309; } .ac-node.y .ac-val { color:#92400e; }
+        .ac-node.i .ac-lbl { color:#4f46e5; } .ac-node.i .ac-val { color:#3730a3; }
+        .ac-val { font-size:.92rem; font-weight:900; }
+
+        /* Founder strip */
+        .ac-footer { display:flex; align-items:center; justify-content:space-between; background:#f8fafc; border-radius:12px; padding:11px 14px; }
+        .ac-partner { display:flex; align-items:center; gap:9px; min-width:0; }
+        .ac-av  { width:30px; height:30px; border-radius:50%; background:var(--shark-obsidian); color:white; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; flex-shrink:0; }
+        .ac-pn  { font-size:.82rem; font-weight:800; color:var(--shark-obsidian); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ac-pr  { font-size:.6rem; color:#94a3b8; font-weight:700; }
+        .ac-btns { display:flex; gap:7px; flex-shrink:0; }
+        .ac-btn { padding:7px 13px; border-radius:9px; font-size:.7rem; font-weight:800; text-decoration:none; border:1.5px solid; transition:.18s; white-space:nowrap; }
+        .ac-btn.msg  { color:var(--shark-indigo); border-color:rgba(99,102,241,0.4); background:white; }
+        .ac-btn.msg:hover  { background:var(--shark-indigo); color:white; border-color:var(--shark-indigo); }
+        .ac-btn.view { color:var(--shark-obsidian); border-color:var(--shark-border); background:white; }
+        .ac-btn.view:hover { background:var(--shark-obsidian); color:white; }
+
+        /* ── OFFER CARD (pending offers) ── */
+        .offer-card {
+            background: white;
+            border-radius: 20px;
+            border: 1px solid var(--shark-border);
+            box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+            margin-bottom: .9rem;
+            overflow: hidden;
+            transition: .26s cubic-bezier(0.23,1,0.32,1);
+            cursor: pointer;
+        }
+        .offer-card:hover { transform:translateY(-3px); border-color:rgba(245,158,11,0.3); box-shadow:0 12px 28px rgba(245,158,11,0.08); }
+        .offer-card:last-child { margin-bottom:0; }
+        .oc-bar   { height:3px; background:linear-gradient(90deg,#f59e0b,#fcd34d); }
+        .oc-inner { padding:1.4rem 1.7rem; display:flex; align-items:center; gap:1rem; justify-content:space-between; }
+        .oc-left  { flex:1; min-width:0; }
+        .oc-top   { display:flex; align-items:center; gap:8px; margin-bottom:.5rem; }
+        .oc-status { padding:3px 10px; border-radius:20px; font-size:.56rem; font-weight:800; text-transform:uppercase; background:#fef9c3; color:#854d0e; border:1px solid #fde047; }
+        .oc-date  { font-size:.6rem; color:#94a3b8; font-weight:700; }
+        .oc-proposal { font-size:1rem; font-weight:800; color:var(--shark-obsidian); margin-bottom:.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .oc-amount   { font-size:.82rem; font-weight:700; color:var(--shark-emerald); }
+        .oc-equity   { font-size:.75rem; font-weight:700; color:#64748b; }
+        .oc-right { display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+        .oc-btn  { padding:8px 14px; border-radius:9px; font-size:.72rem; font-weight:800; text-decoration:none; border:1.5px solid; transition:.18s; white-space:nowrap; text-align:center; }
+        .oc-btn.view { color:var(--shark-indigo); border-color:rgba(99,102,241,0.35); background:white; }
+        .oc-btn.view:hover { background:var(--shark-indigo); color:white; border-color:var(--shark-indigo); }
+        .oc-btn.withdraw { color:#ef4444; border-color:rgba(239,68,68,0.3); background:white; font-size:.65rem; padding:6px 12px; }
+        .oc-btn.withdraw:hover { background:#ef4444; color:white; }
+
+        /* ── SIDEBAR ── */
+        .sb-wrap { position:sticky; top:88px; display:flex; flex-direction:column; gap:.9rem; }
+        .sb-card { background:white; border-radius:18px; padding:1.4rem; border:1px solid var(--shark-border); box-shadow:0 2px 12px rgba(0,0,0,0.03); }
+        .sb-title { font-size:.56rem; font-weight:900; text-transform:uppercase; letter-spacing:3px; color:var(--shark-indigo); margin-bottom:1rem; display:block; }
+        .sb-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:1px solid #f8fafc; }
+        .sb-row:last-child { border-bottom:none; }
+        .sb-rl { font-size:.73rem; font-weight:700; color:#64748b; }
+        .sb-rv { font-size:.86rem; font-weight:900; color:var(--shark-obsidian); }
+        .sbar-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+        .sbar-name { font-size:.68rem; font-weight:800; color:#64748b; }
+        .sbar-pct  { font-size:.66rem; font-weight:800; color:#94a3b8; }
+        .sbar { height:4px; background:#f1f5f9; border-radius:10px; overflow:hidden; margin-bottom:10px; }
+        .sbar-fill { height:100%; border-radius:10px; }
+        .qbox { background:linear-gradient(135deg,#020617,#1e1b4b); border-radius:15px; padding:1.2rem 1.4rem; border:1px solid rgba(99,102,241,0.2); }
+        .qbox-ey { font-size:.48rem; font-weight:900; color:var(--shark-indigo); text-transform:uppercase; letter-spacing:3px; margin-bottom:.5rem; display:block; }
+        .qbox-q  { font-size:.76rem; font-weight:700; color:rgba(255,255,255,0.75); line-height:1.55; }
+        .qbox-a  { font-size:.6rem; color:rgba(255,255,255,0.28); margin-top:.4rem; display:block; font-weight:600; }
+        .cta-btn { display:block; text-align:center; padding:11px; border-radius:11px; font-weight:800; font-size:.78rem; text-decoration:none; transition:.2s; margin-bottom:7px; }
+        .cta-btn:last-child { margin-bottom:0; }
+        .cta-btn.primary { background:var(--shark-indigo); color:white; }
+        .cta-btn.primary:hover { background:#4f46e5; }
+        .cta-btn.ghost { background:#f8fafc; color:var(--shark-obsidian); border:1.5px solid var(--shark-border); }
+        .cta-btn.ghost:hover { border-color:var(--shark-obsidian); background:var(--shark-obsidian); color:white; }
+
+        /* ── EMPTY / LOADING ── */
+        .empty-pg { grid-column:1/-1; background:white; border-radius:20px; border:1px solid var(--shark-border); padding:5rem 3rem; text-align:center; }
+        .empty-icon { font-size:2.8rem; margin-bottom:.8rem; }
+        .empty-title { font-size:1.25rem; font-weight:900; letter-spacing:-.03em; color:var(--shark-obsidian); margin-bottom:.45rem; }
+        .empty-desc  { color:#94a3b8; font-weight:600; font-size:.83rem; margin-bottom:1.5rem; }
+        .empty-btn   { background:var(--shark-indigo); color:white; padding:11px 24px; border-radius:11px; font-weight:800; font-size:.8rem; text-decoration:none; display:inline-block; }
+        .pg-loader { grid-column:1/-1; text-align:center; padding:6rem 0; }
+        .pg-spinner { width:40px; height:40px; border:3px solid #e2e8f0; border-top-color:var(--shark-indigo); border-radius:50%; animation:orb 1s linear infinite; margin:0 auto 1rem; }
+
+        @media (max-width:960px) {
+            .pf-layout { grid-template-columns:1fr; }
+            .sb-wrap { position:relative; top:0; }
+            .trinity-nav { grid-template-columns:1fr auto; }
+            .nav-center { display:none; }
+            .ph-inner { flex-direction:column; align-items:flex-start; }
+            .ph-title { font-size:2.3rem; }
+            .ac-stats { grid-template-columns:1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAV -->
+    <nav class="trinity-nav">
+        <div class="nav-left">
+            <a href="dashboard.html" class="btn-ret">← Dashboard</a>
+        </div>
+        <div class="nav-center">
+            <span id="navQ" class="nav-q">Price is what you pay. Value is what you get.</span>
+        </div>
+        <div class="nav-right">
+            <div id="clk" style="font-family:'JetBrains Mono';color:#4ade80;font-weight:800;font-size:.85rem;letter-spacing:1px;">00:00:00</div>
+            <div class="c-node" onclick="cycleQ()">
+                <div class="o-ring"></div>
+                <div class="s-core"></div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HEADER -->
+    <header class="page-header">
+        <div class="ph-inner">
+            <div class="ph-left">
+                <span class="ph-eyebrow">Private Asset Manifest</span>
+                <h1 class="ph-title" id="pageTitle">My Portfolio</h1>
+                <p class="ph-sub">Forensic record of active stakes, deployed capital, and pending term sheets.</p>
+                <div class="ph-pills">
+                    <div class="ph-pill g"><span class="ph-val" id="phCapital">₹0</span><span class="ph-lbl">Capital Deployed</span></div>
+                    <div class="ph-pill">  <span class="ph-val" id="phDeals">0</span><span class="ph-lbl">Holdings</span></div>
+                    <div class="ph-pill y"><span class="ph-val" id="phEquity">—</span><span class="ph-lbl">Avg Equity</span></div>
+                    <div class="ph-pill i"><span class="ph-val" id="phPending">0</span><span class="ph-lbl">Pending Offers</span></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="pf-layout" id="mainLayout">
+        <div class="pg-loader">
+            <div class="pg-spinner"></div>
+            <p style="color:#94a3b8;font-weight:700;font-size:.83rem;">Syncing vault...</p>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script>
+        // ── QUOTES ──
+        const qs = [
+            "Price is what you pay. Value is what you get.",
+            "Be fearful when others are greedy, greedy when others are fearful.",
+            "The four most dangerous words: 'this time it's different.'",
+            "Know what you own, and know why you own it.",
+            "In investing, what is comfortable is rarely profitable.",
+            "The biggest risk is not taking any risk at all.",
+            "An investment in knowledge pays the best interest.",
+        ];
+        let qi = Math.floor(Math.random() * qs.length);
+        const navQ = document.getElementById('navQ');
+        navQ.textContent = qs[qi];
+        navQ.style.transition = 'opacity .25s';
+        function cycleQ() {
+            navQ.style.opacity = '0';
+            setTimeout(() => { qi = (qi+1)%qs.length; navQ.textContent = qs[qi]; navQ.style.opacity = '.4'; }, 250);
+        }
+        setInterval(() => {
+            document.getElementById('clk').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+        }, 1000);
+
+        // ── FORMAT ──
+        function fmt(n) {
+            n = parseFloat(n) || 0;
+            if (n >= 10000000) return '₹'+(n/10000000).toFixed(1).replace(/\.0$/,'')+'Cr';
+            if (n >= 100000)   return '₹'+(n/100000).toFixed(1).replace(/\.0$/,'')+'L';
+            if (n >= 1000)     return '₹'+(n/1000).toFixed(1).replace(/\.0$/,'')+'K';
+            return '₹'+n.toLocaleString('en-IN');
+        }
+
+        const SECTOR_COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+
+        async function init() {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return window.location.href = 'auth.html';
+
+            // Redirect entrepreneurs to their own portfolio
+            const { data: profile } = await supabase.from('users').select('role,full_name').eq('id',user.id).maybeSingle();
+            if (profile?.role === 'entrepreneur') return window.location.href = 'entrepreneur-portfolio.html';
+
+            document.getElementById('pageTitle').textContent = `${(profile?.full_name||'Investor').split(' ')[0]}'s Portfolio`;
+
+            // Fetch deals (closed investments)
+            const { data: deals } = await supabase
+                .from('deals')
+                .select('*, proposals(id,title,category), entrepreneur:entrepreneur_id(full_name)')
+                .eq('investor_id', user.id)
+                .order('deal_date', { ascending: false });
+
+            // Fetch pending offers this investor has submitted
+            const { data: pendingOffers } = await supabase
+                .from('offers')
+                .select('*, proposals(id,title,category)')
+                .eq('investor_id', user.id)
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
+
+            document.getElementById('mainLayout').innerHTML = '';
+
+            const hasDeals   = deals && deals.length > 0;
+            const hasOffers  = pendingOffers && pendingOffers.length > 0;
+
+            if (!hasDeals && !hasOffers) {
+                document.getElementById('mainLayout').innerHTML = `
+                    <div class="empty-pg">
+                        <div class="empty-icon">🏛️</div>
+                        <div class="empty-title">Portfolio is empty</div>
+                        <div class="empty-desc">Browse the marketplace, find compelling proposals, and submit your first offer to start building your portfolio.</div>
+                        <a href="proposals.html" class="empty-btn">🔍 Browse Marketplace</a>
+                    </div>`;
+                return;
+            }
+
+            // ── COMPUTE STATS ──
+            let totalCapital   = 0;
+            let totalEquity    = 0;
+            let totalValuation = 0;
+            const sectors = {};
+
+            (deals||[]).forEach(d => {
+                const cap = parseFloat(d.investment_amount||0);
+                const eq  = parseFloat(d.equity_percentage||0);
+                totalCapital   += cap;
+                totalEquity    += eq;
+                totalValuation += eq > 0 ? Math.round(cap/(eq/100)) : 0;
+                const cat = d.proposals?.category || 'General';
+                sectors[cat] = (sectors[cat]||0)+1;
+            });
+            const avgEquity = (deals||[]).length > 0 ? (totalEquity/(deals||[]).length).toFixed(1) : '—';
+
+            // Pill updates
+            document.getElementById('phCapital').textContent = fmt(totalCapital);
+            document.getElementById('phDeals').textContent   = (deals||[]).length;
+            document.getElementById('phEquity').textContent  = avgEquity === '—' ? '—' : avgEquity+'%';
+            document.getElementById('phPending').textContent = (pendingOffers||[]).length;
+
+            const leftCol = document.createElement('div');
+
+            // ── SECTION 1: PENDING OFFERS ──
+            if (hasOffers) {
+                const offLbl = document.createElement('div');
+                offLbl.className = 'sec-lbl';
+                offLbl.textContent = `⏳ Pending Offers (${pendingOffers.length})`;
+                leftCol.appendChild(offLbl);
+
+                pendingOffers.forEach(o => {
+                    const cap      = parseFloat(o.amount||0);
+                    const equity   = parseFloat(o.equity_percentage||0);
+                    const ofDate   = o.created_at
+                        ? new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
+                        : '—';
+                    const propTitle = o.proposals?.title || 'Unknown';
+
+                    const card = document.createElement('div');
+                    card.className = 'offer-card';
+                    card.onclick = () => window.location.href = `offer-detail.html?id=${o.id}`;
+                    card.innerHTML = `
+                        <div class="oc-bar"></div>
+                        <div class="oc-inner">
+                            <div class="oc-left">
+                                <div class="oc-top">
+                                    <span class="oc-status">⏳ Awaiting Response</span>
+                                    <span class="oc-date">${ofDate}</span>
+                                </div>
+                                <div class="oc-proposal">${propTitle}</div>
+                                <div style="display:flex;gap:12px;align-items:center;margin-top:.35rem;">
+                                    <span class="oc-amount">${fmt(cap)}</span>
+                                    <span class="oc-equity">· ${equity}% equity</span>
+                                </div>
+                            </div>
+                            <div class="oc-right" onclick="event.stopPropagation()">
+                                <a href="offer-detail.html?id=${o.id}" class="oc-btn view">View Terms →</a>
+                                <a href="proposals.html" class="oc-btn withdraw">Withdraw</a>
+                            </div>
+                        </div>`;
+                    leftCol.appendChild(card);
+                });
+            }
+
+            // ── SECTION 2: CLOSED DEALS / HOLDINGS ──
+            if (hasDeals) {
+                const dealLbl = document.createElement('div');
+                dealLbl.className = 'sec-lbl';
+                dealLbl.style.marginTop = hasOffers ? '2rem' : '0';
+                dealLbl.textContent = `🏛️ Holdings (${deals.length})`;
+                leftCol.appendChild(dealLbl);
+
+                deals.forEach(d => {
+                    const capital    = parseFloat(d.investment_amount||0);
+                    const equity     = parseFloat(d.equity_percentage||0);
+                    const valuation  = equity > 0 ? Math.round(capital/(equity/100)) : 0;
+                    const dealDate   = d.deal_date
+                        ? new Date(d.deal_date).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
+                        : '—';
+                    const founder    = d.entrepreneur?.full_name || 'Unknown';
+                    const propId     = d.proposals?.id || '';
+                    const propTitle  = d.proposals?.title || 'Unknown';
+                    const category   = d.proposals?.category || 'General';
+
+                    const card = document.createElement('div');
+                    card.className = 'asset-card';
+                    card.onclick = () => { if(propId) window.location.href = `proposal-details.html?id=${propId}`; };
+                    card.innerHTML = `
+                        <div class="ac-bar"></div>
+                        <div class="ac-inner">
+                            <div class="ac-top">
+                                <code class="ac-code">ASSET_${d.id.substring(0,8).toUpperCase()}</code>
+                                <span class="ac-date">Acquired ${dealDate}</span>
+                            </div>
+                            <div class="ac-title">${propTitle}</div>
+                            <div class="ac-cat">🏷 ${category}</div>
+                            <div class="ac-stats">
+                                <div class="ac-node g">
+                                    <span class="ac-lbl">Deployed</span>
+                                    <div class="ac-val">${fmt(capital)}</div>
+                                </div>
+                                <div class="ac-node y">
+                                    <span class="ac-lbl">Equity Held</span>
+                                    <div class="ac-val">${equity}%</div>
+                                </div>
+                                <div class="ac-node i">
+                                    <span class="ac-lbl">Implied Val.</span>
+                                    <div class="ac-val">${fmt(valuation)}</div>
+                                </div>
+                            </div>
+                            <div class="ac-footer" onclick="event.stopPropagation()">
+                                <div class="ac-partner">
+                                    <div class="ac-av">${founder.charAt(0).toUpperCase()}</div>
+                                    <div style="min-width:0;">
+                                        <div class="ac-pn">${founder}</div>
+                                        <div class="ac-pr">Founder / Entrepreneur</div>
+                                    </div>
+                                </div>
+                                <div class="ac-btns">
+                                    <a href="chat.html" class="ac-btn msg" onclick="event.stopPropagation()">💬 Chat</a>
+                                    <a href="proposal-details.html?id=${propId}" class="ac-btn view" onclick="event.stopPropagation()">View →</a>
+                                </div>
+                            </div>
+                        </div>`;
+                    leftCol.appendChild(card);
+                });
+            }
+
+            // ── SIDEBAR ──
+            const sidebarEl = document.createElement('div');
+            sidebarEl.className = 'sb-wrap';
+
+            // Intelligence
+            const intel = document.createElement('div');
+            intel.className = 'sb-card';
+            intel.innerHTML = `
+                <span class="sb-title">📊 Portfolio Intelligence</span>
+                <div class="sb-row"><span class="sb-rl">Capital Deployed</span><span class="sb-rv" style="color:var(--shark-emerald);">${fmt(totalCapital)}</span></div>
+                <div class="sb-row"><span class="sb-rl">Total Valuation</span><span class="sb-rv" style="color:var(--shark-indigo);">${fmt(totalValuation)}</span></div>
+                <div class="sb-row"><span class="sb-rl">Holdings</span><span class="sb-rv">${(deals||[]).length}</span></div>
+                <div class="sb-row"><span class="sb-rl">Avg Equity</span><span class="sb-rv" style="color:#f59e0b;">${avgEquity}${avgEquity!=='—'?'%':''}</span></div>
+                <div class="sb-row"><span class="sb-rl">Avg Deal Size</span><span class="sb-rv">${(deals||[]).length > 0 ? fmt(totalCapital/(deals||[]).length) : '—'}</span></div>
+                <div class="sb-row"><span class="sb-rl">Pending Offers</span><span class="sb-rv" style="color:#f59e0b;">${(pendingOffers||[]).length}</span></div>`;
+            sidebarEl.appendChild(intel);
+
+            // Sector breakdown
+            if (Object.keys(sectors).length > 0) {
+                const secCard = document.createElement('div');
+                secCard.className = 'sb-card';
+                const total = (deals||[]).length;
+                secCard.innerHTML = `
+                    <span class="sb-title">🏷 Sector Diversification</span>
+                    ${Object.entries(sectors).map(([s,c],idx) => {
+                        const pct = Math.round((c/total)*100);
+                        const color = SECTOR_COLORS[idx % SECTOR_COLORS.length];
+                        return `<div class="sbar-row"><span class="sbar-name">${s}</span><span class="sbar-pct">${pct}%</span></div>
+                                <div class="sbar"><div class="sbar-fill" style="width:${pct}%;background:${color};"></div></div>`;
+                    }).join('')}`;
+                sidebarEl.appendChild(secCard);
+            }
+
+            // Quote
+            const tips = [
+                { q:"Price is what you pay. Value is what you get.", a:"Warren Buffett" },
+                { q:"Be fearful when others are greedy.", a:"Warren Buffett" },
+                { q:"In investing, what is comfortable is rarely profitable.", a:"Robert Arnott" },
+                { q:"Know what you own, and know why you own it.", a:"Peter Lynch" },
+                { q:"The biggest risk is not taking any risk.", a:"Mark Zuckerberg" },
+                { q:"Diversification is protection against ignorance.", a:"Warren Buffett" },
+            ];
+            const tip = tips[Math.floor(Math.random()*tips.length)];
+            const qCard = document.createElement('div');
+            qCard.className = 'sb-card';
+            qCard.innerHTML = `
+                <div class="qbox">
+                    <span class="qbox-ey">✦ Investor's Edge</span>
+                    <div class="qbox-q">"${tip.q}"</div>
+                    <span class="qbox-a">— ${tip.a}</span>
+                </div>`;
+            sidebarEl.appendChild(qCard);
+
+            // CTA
+            const ctaCard = document.createElement('div');
+            ctaCard.className = 'sb-card';
+            ctaCard.innerHTML = `
+                <a href="proposals.html" class="cta-btn primary">🔍 Find Deals</a>
+                <a href="deals.html" class="cta-btn ghost">🤝 All Deals</a>
+                <a href="funding-history.html" class="cta-btn ghost">🧾 Funding Ledger</a>
+                <a href="dashboard.html" class="cta-btn ghost">← Dashboard</a>`;
+            sidebarEl.appendChild(ctaCard);
+
+            document.getElementById('mainLayout').appendChild(leftCol);
+            document.getElementById('mainLayout').appendChild(sidebarEl);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

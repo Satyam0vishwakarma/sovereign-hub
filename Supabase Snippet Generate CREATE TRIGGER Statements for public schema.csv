@@ -1,0 +1,6 @@
+trigger_definition
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON public.users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_proposals_updated_at BEFORE UPDATE ON public.proposals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_offers_updated_at BEFORE UPDATE ON public.offers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER trigger_calculate_success_score BEFORE INSERT ON public.proposals FOR EACH ROW EXECUTE FUNCTION calculate_proposal_success_score();
+CREATE TRIGGER trigger_calculate_success_score BEFORE UPDATE ON public.proposals FOR EACH ROW EXECUTE FUNCTION calculate_proposal_success_score();

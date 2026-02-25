@@ -1,0 +1,72 @@
+        /* --- 1. TITAN DESIGN SYSTEM --- */
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500&family=Inter:wght@400;700;800&display=swap');
+
+        :root {
+            --shark-obsidian: #020617; 
+            --shark-indigo: #6366f1;   
+            --shark-emerald: #10b981;
+            --shark-bg: #f8fafc;
+            --shark-border: #e2e8f0;
+            --shark-text: #1e293b;
+            --shark-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--shark-bg); color: var(--shark-text); font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+
+        /* --- 2. NAVIGATION --- */
+        .main-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(18px); border-bottom: 1px solid var(--shark-border); height: 76px; position: sticky; top: 0; z-index: 4000; display: flex; align-items: center; }
+        .nav-container { width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 2.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .nav-brand { font-weight: 800; color: var(--shark-obsidian); text-decoration: none; font-size: 1.4rem; display: flex; align-items: center; gap: 8px; }
+
+        /* --- 3. FORENSIC HEADER --- */
+        .details-header {
+            background: var(--shark-obsidian);
+            background-image: radial-gradient(circle at 100% 0%, rgba(99,102,241,0.12) 0%, transparent 40%);
+            color: white; padding: 5rem 0 10rem 0; border-radius: 0 0 40px 40px;
+        }
+        .header-inner { max-width: 1200px; margin: 0 auto; padding: 0 2.5rem; }
+        .hash-ref { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #a5b4fc; background: rgba(165, 180, 252, 0.1); padding: 4px 12px; border-radius: 6px; display: inline-block; margin-bottom: 1rem; border: 1px solid rgba(165, 180, 252, 0.2); }
+        .welcome-text { font-size: 3rem; font-weight: 800; letter-spacing: -0.05em; margin-bottom: 0.8rem; line-height: 1.1; }
+
+        /* --- 4. THE DATA CONTENT --- */
+        .details-content { max-width: 1200px; margin: -6rem auto 6rem; padding: 0 2rem; display: grid; grid-template-columns: 1.2fr 2fr; gap: 2rem; }
+        .main-column, .sidebar-column { display: flex; flex-direction: column; gap: 2rem; }
+
+        .forensic-card {
+            background: white; padding: 2.2rem; border-radius: 32px; border: 1px solid var(--shark-border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 🟢 SUCCESS SCORE GAUGE */
+        .score-gauge { text-align: center; padding: 20px; background: #f8fafc; border-radius: 24px; border: 1px solid var(--shark-border); }
+        .score-circle { width: 100px; height: 100px; border-radius: 50%; border: 8px solid #e2e8f0; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; position: relative; }
+        .score-value { font-size: 2rem; font-weight: 900; color: var(--shark-indigo); font-family: 'Inter', sans-serif; }
+        .score-grade { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; color: var(--shark-indigo); letter-spacing: 0.1em; }
+
+        /* Sidebar Elements */
+        .founder-pill { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .founder-avatar { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, var(--shark-indigo), #4f46e5); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.4rem; }
+        .f-label { font-size: 0.65rem; font-weight: 800; color: var(--shark-muted); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 6px; }
+
+        /* 🟢 MILESTONE TIMELINE */
+        .milestone-timeline { position: relative; padding-left: 30px; border-left: 2px dashed var(--shark-border); margin-left: 10px; margin-top: 20px; }
+        .milestone-item { position: relative; margin-bottom: 30px; }
+        .milestone-item::before { content: ''; position: absolute; left: -37px; top: 5px; width: 12px; height: 12px; background: white; border: 3px solid var(--shark-border); border-radius: 50%; z-index: 2; }
+        .milestone-item.completed::before { background: var(--shark-emerald); border-color: var(--shark-emerald); }
+        .milestone-title { font-size: 0.95rem; font-weight: 800; color: var(--shark-obsidian); display: block; }
+        .milestone-date { font-size: 0.75rem; color: var(--shark-muted); font-weight: 600; }
+
+        /* Financial Nodes */
+        .f-node { background: #f8fafc; border: 1px solid var(--shark-border); padding: 20px; border-radius: 20px; margin-bottom: 1rem; }
+        .f-node.highlight { background: #f5f3ff; border-color: #ddd6fe; }
+        .f-value { font-size: 1.4rem; font-weight: 800; color: var(--shark-obsidian); font-family: 'Inter', sans-serif; }
+
+        /* Buttons */
+        .btn { padding: 1rem 1.8rem; border-radius: 16px; font-weight: 800; cursor: pointer; text-decoration: none; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s; font-size: 0.9rem; width: 100%; }
+        .btn-primary { background: var(--shark-indigo); color: white; }
+        .btn-outline { background: white; color: var(--shark-obsidian); border: 1.5px solid var(--shark-border); }
+        
+        .hidden { display: none !important; }
+        .badge { padding: 6px 14px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+        .badge-success { background: #ecfdf5; color: var(--shark-emerald); }

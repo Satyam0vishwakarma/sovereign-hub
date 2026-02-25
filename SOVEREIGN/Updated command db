@@ -1,0 +1,185 @@
+CREATE OR REPLACE FUNCTION calculate_proposal_success_score()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- We use COALESCE to ensure that if a value is missing, it counts as 0
+    NEW.success_score := (
+        -- Milestones (Max 40 points)
+        COALESCE(
+            (COALESCE(NEW.milestones_achieved, 0)::DECIMAL / NULLIF(NEW.total_milestones, 0) * 40), 
+            0
+        ) +
+        -- Funding Goal (Max 30 points)
+        (COALESCE(NEW.funding_goal_percentage, 0) * 0.3) +
+        -- Status points (Max 30 points)
+        (CASE
+            WHEN NEW.status = 'funded' THEN 30
+            WHEN NEW.status = 'active' THEN 15
+            ELSE 0
+        END)
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Now, force a recalculation for all existing proposals
+UPDATE proposals SET updated_at = NOW();
+
+-- 1. Create a Funding Logs table
+CREATE TABLE funding_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    investor_id UUID REFERENCES users(id),
+    amount DECIMAL(12,2) NOT NULL,
+    equity_given DECIMAL(5,2),
+    transaction_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Create a TRIGGER to automatically update the proposal total
+CREATE OR REPLACE FUNCTION update_proposal_funding_total()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE proposals 
+    SET funding_received = (SELECT SUM(amount) FROM funding_logs WHERE proposal_id = NEW.proposal_id),
+        status = 'funded'
+    WHERE id = NEW.proposal_id;
+    
+    -- Recalculate the percentage too
+    UPDATE proposals 
+    SET funding_goal_percentage = LEAST((funding_received / NULLIF(amount_needed, 0)) * 100, 100)
+    WHERE id = NEW.proposal_id;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_funding_total
+AFTER INSERT ON funding_logs
+FOR EACH ROW EXECUTE FUNCTION update_proposal_funding_total();
+
+-- This moves your existing deals into the funding_logs so they appear in history
+INSERT INTO funding_logs (proposal_id, investor_id, amount, equity_given, transaction_date)
+SELECT proposal_id, investor_id, investment_amount, equity_percentage, deal_date
+FROM deals;
+
+-- This forces the proposal stats to update based on these moved deals
+UPDATE proposals p
+SET funding_received = (SELECT SUM(amount) FROM funding_logs WHERE proposal_id = p.id),
+    status = 'funded'
+WHERE id IN (SELECT proposal_id FROM funding_logs);
+
+-- Recalculate the Success Score
+UPDATE proposals SET updated_at = NOW();
+
+-- AUTO-NOTIFY ON NEW CHAT MESSAGE
+CREATE OR REPLACE FUNCTION notify_chat_recipient()
+RETURNS TRIGGER AS $$
+DECLARE
+    rec_id UUID;
+    s_name TEXT;
+BEGIN
+    -- Figure out who is the other person in the chat room
+    SELECT CASE WHEN NEW.sender_id = r.entrepreneur_id THEN r.investor_id ELSE r.entrepreneur_id END 
+    INTO rec_id FROM chat_rooms r WHERE r.id = NEW.room_id;
+
+    -- Get sender name
+    SELECT full_name INTO s_name FROM users WHERE id = NEW.sender_id;
+
+    -- Create notification
+    INSERT INTO notifications (user_id, title, message, type, link)
+    VALUES (rec_id, '💬 New Message', s_name || ': ' || substring(NEW.content from 1 for 30), 'chat', 'chat.html');
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_notify_chat 
+AFTER INSERT ON messages 
+FOR EACH ROW EXECUTE FUNCTION notify_chat_recipient();
+
+
+-- CHAT NOTIFICATION TRIGGER
+CREATE OR REPLACE FUNCTION notify_on_message()
+RETURNS TRIGGER AS $$
+DECLARE
+    rec_id UUID;
+    s_name TEXT;
+BEGIN
+    SELECT CASE WHEN NEW.sender_id = r.entrepreneur_id THEN r.investor_id ELSE r.entrepreneur_id END 
+    INTO rec_id FROM chat_rooms r WHERE r.id = NEW.room_id;
+
+    SELECT full_name INTO s_name FROM users WHERE id = NEW.sender_id;
+
+    INSERT INTO notifications (user_id, title, message, type, link)
+    VALUES (rec_id, '💬 New Message from ' || s_name, substring(NEW.content from 1 for 50), 'chat', 'chat.html?room=' || NEW.room_id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- UPDATE NOTIFICATION TRIGGER (For Investors)
+CREATE OR REPLACE FUNCTION notify_investors_on_update()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO notifications (user_id, title, message, type, link)
+    SELECT investor_id, '📢 Business Update', NEW.title, 'update', 'proposal-details.html?id=' || NEW.proposal_id
+    FROM deals WHERE proposal_id = NEW.proposal_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- This copies every deal you ever made into the transaction ledger
+INSERT INTO funding_logs (proposal_id, investor_id, amount, equity_given, transaction_date)
+SELECT proposal_id, investor_id, investment_amount, equity_percentage, deal_date
+FROM deals;
+
+-- Force the Proposals to update their totals based on these logs
+UPDATE proposals p
+SET funding_received = (SELECT SUM(amount) FROM funding_logs WHERE proposal_id = p.id)
+WHERE id IN (SELECT proposal_id FROM funding_logs);
+
+
+-- 1. Enable Security
+ALTER TABLE funding_logs ENABLE ROW LEVEL SECURITY;
+
+-- 2. Allow Entrepreneurs to see logs where they own the proposal
+CREATE POLICY "Entrepreneurs can view their own funding logs" 
+ON funding_logs FOR SELECT 
+USING (
+  auth.uid() IN (
+    SELECT user_id FROM proposals WHERE id = funding_logs.proposal_id
+  )
+);
+
+-- 3. Allow Investors to see logs for money they sent
+CREATE POLICY "Investors can view their own sent logs" 
+ON funding_logs FOR SELECT 
+USING (auth.uid() = investor_id);
+
+SELECT count(*) FROM funding_logs;
+-- Disable security for this table temporarily to confirm it works
+ALTER TABLE funding_logs DISABLE ROW LEVEL SECURITY;
+
+
+-- This deletes duplicate logs keeping only the newest one
+DELETE FROM funding_logs
+WHERE id IN (
+    SELECT id
+    FROM (
+        SELECT id,
+        ROW_NUMBER() OVER (PARTITION BY proposal_id, investor_id, amount ORDER BY transaction_date DESC) as row_num
+        FROM funding_logs
+    ) t
+    WHERE t.row_num > 1
+);
+
+-- This ensures unread counts reset properly when a message is marked read
+CREATE OR REPLACE FUNCTION reset_unread_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.read = true THEN
+    -- Check if sender was investor or entrepreneur to reset the correct count
+    -- This is a helper, but we will mostly handle this in JS for instant feedback
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

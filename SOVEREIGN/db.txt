@@ -1,0 +1,320 @@
+/* 
+===========================================================
+    MICRO SHARKS TANK - ULTIMATE DATABASE SCHEMA
+    Project: TYCS Final Project 2026
+===========================================================
+    FEATURES INCLUDED:
+    - User Authentication & Roles
+    - Business Proposals & Success Scoring
+    - Investment Offers & Deal Tracking
+    - Real-time Chat System (Rooms & Messages)
+    - Milestone & Progress Tracking
+    - Business Updates & Notifications
+    - Success Metrics (Monthly Analytics)
+    - Peer Reviews & Ratings
+===========================================================
+    CRITICAL FIXES APPLIED:
+    - Stack Depth/Recursion Loop Protection
+    - Admin "God-Mode" Verification Logic
+    - Non-Recursive Success Score Trigger
+===========================================================
+*/
+
+-- 1. EXTENSIONS
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- 2. TABLES DEFINITION
+
+-- USERS TABLE
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT auth.uid(),
+    email TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('entrepreneur', 'investor', 'admin')),
+    phone TEXT,
+    bio TEXT,
+    company_name TEXT,
+    investment_range_min DECIMAL(12,2),
+    investment_range_max DECIMAL(12,2),
+    expertise TEXT[],
+    location TEXT,
+    profile_picture TEXT,
+    verified BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    total_investments DECIMAL(12,2) DEFAULT 0,
+    successful_deals INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- PROPOSALS TABLE
+CREATE TABLE proposals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    tagline TEXT,
+    description TEXT NOT NULL,
+    category TEXT NOT NULL,
+    amount_needed DECIMAL(12,2) NOT NULL,
+    equity_offered DECIMAL(5,2) NOT NULL,
+    current_valuation DECIMAL(12,2),
+    business_stage TEXT NOT NULL,
+    revenue DECIMAL(12,2) DEFAULT 0,
+    team_size INTEGER DEFAULT 1,
+    location TEXT,
+    website TEXT,
+    pitch_deck_url TEXT,
+    video_pitch_url TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'funded', 'closed', 'failed')),
+    funding_received DECIMAL(12,2) DEFAULT 0,
+    funding_goal_percentage DECIMAL(5,2) DEFAULT 0,
+    success_score INTEGER DEFAULT 0,
+    milestones_achieved INTEGER DEFAULT 0,
+    total_milestones INTEGER DEFAULT 0,
+    last_update_date TIMESTAMP WITH TIME ZONE,
+    verified BOOLEAN DEFAULT false,
+    featured BOOLEAN DEFAULT false,
+    views INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- OFFERS TABLE
+CREATE TABLE offers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    investor_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    amount DECIMAL(12,2) NOT NULL,
+    equity_percentage DECIMAL(5,2) NOT NULL,
+    valuation DECIMAL(12,2),
+    message TEXT,
+    terms TEXT,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'countered', 'withdrawn')),
+    counter_amount DECIMAL(12,2),
+    counter_equity DECIMAL(5,2),
+    accepted_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- DEALS TABLE
+CREATE TABLE deals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    offer_id UUID REFERENCES offers(id) ON DELETE CASCADE,
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    entrepreneur_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    investor_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    investment_amount DECIMAL(12,2) NOT NULL,
+    equity_percentage DECIMAL(5,2) NOT NULL,
+    deal_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deal_status TEXT DEFAULT 'active' CHECK (deal_status IN ('active', 'successful', 'struggling', 'failed')),
+    current_roi DECIMAL(5,2) DEFAULT 0,
+    revenue_growth DECIMAL(5,2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- MILESTONES TABLE
+CREATE TABLE milestones (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT,
+    target_date DATE,
+    completion_date DATE,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'delayed', 'cancelled')),
+    importance TEXT DEFAULT 'medium' CHECK (importance IN ('low', 'medium', 'high', 'critical')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- UPDATES TABLE
+CREATE TABLE updates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    update_type TEXT DEFAULT 'general' CHECK (update_type IN ('general', 'milestone', 'financial', 'team', 'product')),
+    visibility TEXT DEFAULT 'public' CHECK (visibility IN ('public', 'investors_only', 'private')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- CHAT SYSTEM TABLES
+CREATE TABLE chat_rooms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    entrepreneur_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    investor_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    last_message TEXT,
+    last_message_at TIMESTAMP WITH TIME ZONE,
+    unread_count_entrepreneur INTEGER DEFAULT 0,
+    unread_count_investor INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(proposal_id, entrepreneur_id, investor_id)
+);
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    room_id UUID REFERENCES chat_rooms(id) ON DELETE CASCADE,
+    sender_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    message_type TEXT DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'file', 'offer')),
+    read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- REVIEWS TABLE
+CREATE TABLE reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    deal_id UUID REFERENCES deals(id) ON DELETE CASCADE,
+    reviewer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    reviewee_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+    review_text TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- NOTIFICATIONS TABLE
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    type TEXT DEFAULT 'info',
+    link TEXT,
+    read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- SUCCESS METRICS TABLE
+CREATE TABLE success_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    proposal_id UUID REFERENCES proposals(id) ON DELETE CASCADE,
+    month DATE NOT NULL,
+    revenue DECIMAL(12,2) DEFAULT 0,
+    users_count INTEGER DEFAULT 0,
+    product_launches INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(proposal_id, month)
+);
+
+-- 3. CORE FUNCTIONS
+
+-- Admin Check (Loop-Proof)
+CREATE OR REPLACE FUNCTION is_admin() 
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Updated_At Timestamp Function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Success Score Calculation (Non-Recursive)
+CREATE OR REPLACE FUNCTION calculate_proposal_success_score()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.success_score := (
+        (COALESCE(NEW.milestones_achieved, 0)::DECIMAL / NULLIF(NEW.total_milestones, 0) * 40) +
+        (LEAST(NEW.funding_goal_percentage, 100) * 0.3) +
+        (CASE
+            WHEN NEW.status = 'funded' THEN 30
+            WHEN NEW.status = 'active' THEN 15
+            ELSE 0
+        END)
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 4. TRIGGERS
+
+-- Success Score Trigger
+CREATE TRIGGER trigger_calculate_success_score
+BEFORE INSERT OR UPDATE ON proposals
+FOR EACH ROW EXECUTE FUNCTION calculate_proposal_success_score();
+
+-- Updated_At Triggers
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_proposals_updated_at BEFORE UPDATE ON proposals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_offers_updated_at BEFORE UPDATE ON offers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_chat_rooms_updated_at BEFORE UPDATE ON chat_rooms FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- 5. SECURITY (RLS)
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proposals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE milestones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE updates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE success_metrics ENABLE ROW LEVEL SECURITY;
+
+-- User Policies
+CREATE POLICY "Users can view all profiles" ON users FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile" ON users FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile or Admin" ON users FOR UPDATE USING (auth.uid() = id OR is_admin());
+
+-- Proposal Policies
+CREATE POLICY "Anyone can view verified proposals" ON proposals FOR SELECT USING (verified = true OR user_id = auth.uid() OR is_admin());
+CREATE POLICY "Entrepreneurs can insert proposals" ON proposals FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Owners or Admin can update proposals" ON proposals FOR UPDATE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Owners or Admin can delete proposals" ON proposals FOR DELETE USING (auth.uid() = user_id OR is_admin());
+
+-- Offer Policies
+CREATE POLICY "Participants can view offers" ON offers FOR SELECT USING (investor_id = auth.uid() OR is_admin() OR proposal_id IN (SELECT id FROM proposals WHERE user_id = auth.uid()));
+CREATE POLICY "Investors can create offers" ON offers FOR INSERT WITH CHECK (auth.uid() = investor_id);
+CREATE POLICY "Investors can update own offers" ON offers FOR UPDATE USING (auth.uid() = investor_id OR is_admin());
+
+-- Chat Policies
+CREATE POLICY "Participants can view rooms" ON chat_rooms FOR SELECT USING (entrepreneur_id = auth.uid() OR investor_id = auth.uid() OR is_admin());
+CREATE POLICY "Participants can create rooms" ON chat_rooms FOR INSERT WITH CHECK (entrepreneur_id = auth.uid() OR investor_id = auth.uid());
+CREATE POLICY "Participants can view messages" ON messages FOR SELECT USING (room_id IN (SELECT id FROM chat_rooms WHERE entrepreneur_id = auth.uid() OR investor_id = auth.uid()) OR is_admin());
+CREATE POLICY "Participants can send messages" ON messages FOR INSERT WITH CHECK (sender_id = auth.uid());
+
+-- Notifications
+CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (user_id = auth.uid());
+
+-- Metrics & Milestones
+CREATE POLICY "Public can view metrics" ON success_metrics FOR SELECT USING (true);
+CREATE POLICY "Owners can manage metrics" ON success_metrics FOR ALL USING (proposal_id IN (SELECT id FROM proposals WHERE user_id = auth.uid()) OR is_admin());
+
+-- 6. INDICES
+CREATE INDEX idx_proposals_user ON proposals(user_id);
+CREATE INDEX idx_proposals_status ON proposals(status);
+CREATE INDEX idx_proposals_category ON proposals(category);
+CREATE INDEX idx_offers_proposal ON offers(proposal_id);
+CREATE INDEX idx_deals_proposal ON deals(proposal_id);
+CREATE INDEX idx_chat_rooms_entrepreneur ON chat_rooms(entrepreneur_id);
+CREATE INDEX idx_chat_rooms_investor ON chat_rooms(investor_id);
+CREATE INDEX idx_messages_room ON messages(room_id);
+CREATE INDEX idx_notifications_user ON notifications(user_id);
+CREATE INDEX idx_metrics_proposal ON success_metrics(proposal_id);
+
+/* 
+===========================================================
+   END OF SCHEMA - DATABASE READY FOR DEPLOYMENT
+===========================================================
+*/
+
+
+
+
+
+

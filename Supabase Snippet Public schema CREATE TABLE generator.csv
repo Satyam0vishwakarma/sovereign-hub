@@ -1,0 +1,156 @@
+table_definition
+"CREATE TABLE public.chat_rooms (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    proposal_id uuid,
+    entrepreneur_id uuid,
+    investor_id uuid,
+    last_message text,
+    last_message_at timestamp without time zone,
+    unread_count_entrepreneur integer DEFAULT 0,
+    unread_count_investor integer DEFAULT 0,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.deals (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    offer_id uuid,
+    proposal_id uuid,
+    entrepreneur_id uuid,
+    investor_id uuid,
+    investment_amount numeric NOT NULL,
+    equity_percentage numeric NOT NULL,
+    deal_date timestamp without time zone DEFAULT now(),
+    deal_status text DEFAULT 'active'::text,
+    current_roi numeric DEFAULT 0,
+    revenue_growth numeric DEFAULT 0,
+    last_update timestamp without time zone DEFAULT now(),
+    notes text,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.messages (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    room_id uuid,
+    sender_id uuid,
+    content text NOT NULL,
+    message_type text DEFAULT 'text'::text,
+    attachment_url text,
+    read boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.milestones (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    proposal_id uuid,
+    title text NOT NULL,
+    description text,
+    target_date date,
+    completion_date date,
+    status text DEFAULT 'pending'::text,
+    importance text DEFAULT 'medium'::text,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.notifications (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid,
+    title text NOT NULL,
+    message text NOT NULL,
+    type text DEFAULT 'info'::text,
+    link text,
+    read boolean DEFAULT false,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.offers (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    proposal_id uuid,
+    investor_id uuid,
+    amount numeric NOT NULL,
+    equity_percentage numeric NOT NULL,
+    valuation numeric,
+    message text,
+    terms text,
+    status text DEFAULT 'pending'::text,
+    counter_amount numeric,
+    counter_equity numeric,
+    accepted_at timestamp without time zone,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.proposals (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    user_id uuid,
+    title text NOT NULL,
+    tagline text,
+    description text NOT NULL,
+    category text NOT NULL,
+    amount_needed numeric NOT NULL,
+    equity_offered numeric NOT NULL,
+    current_valuation numeric,
+    business_stage text NOT NULL,
+    revenue numeric DEFAULT 0,
+    team_size integer DEFAULT 1,
+    location text,
+    website text,
+    pitch_deck_url text,
+    video_pitch_url text,
+    status text DEFAULT 'pending'::text,
+    funding_received numeric DEFAULT 0,
+    funding_goal_percentage numeric DEFAULT 0,
+    success_score integer DEFAULT 0,
+    milestones_achieved integer DEFAULT 0,
+    total_milestones integer DEFAULT 0,
+    last_update_date timestamp without time zone,
+    verified boolean DEFAULT false,
+    featured boolean DEFAULT false,
+    views integer DEFAULT 0,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.reviews (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    deal_id uuid,
+    reviewer_id uuid,
+    reviewee_id uuid,
+    rating integer,
+    review_text text,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.success_metrics (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    proposal_id uuid,
+    month date NOT NULL,
+    revenue numeric DEFAULT 0,
+    users_count integer DEFAULT 0,
+    product_launches integer DEFAULT 0,
+    media_mentions integer DEFAULT 0,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.updates (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    proposal_id uuid,
+    user_id uuid,
+    title text NOT NULL,
+    content text NOT NULL,
+    update_type text DEFAULT 'general'::text,
+    attachments ARRAY,
+    visibility text DEFAULT 'public'::text,
+    created_at timestamp without time zone DEFAULT now()
+);"
+"CREATE TABLE public.users (
+    id uuid NOT NULL DEFAULT auth.uid(),
+    email text NOT NULL,
+    full_name text NOT NULL,
+    role text NOT NULL,
+    phone text,
+    bio text,
+    company_name text,
+    investment_range_min numeric,
+    investment_range_max numeric,
+    expertise ARRAY,
+    location text,
+    profile_picture text,
+    verified boolean DEFAULT false,
+    is_active boolean DEFAULT true,
+    total_investments numeric DEFAULT 0,
+    successful_deals integer DEFAULT 0,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now()
+);"

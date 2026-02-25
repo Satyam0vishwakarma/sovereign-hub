@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup & Test - Micro Sharks Tank</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .setup-container {
+            max-width: 900px;
+            margin: 3rem auto;
+            padding: 2rem;
+        }
+        
+        .test-card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .test-result {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+        
+        .test-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .test-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .test-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+        
+        .step {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .step:last-child {
+            border-bottom: none;
+        }
+        
+        .step h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        code {
+            background: #f1f5f9;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <h1 style="text-align: center; color: #667eea; margin-bottom: 2rem;">
+            🦈 Micro Sharks Tank - Setup & Testing
+        </h1>
+        
+        <!-- Connection Test -->
+        <div class="test-card">
+            <h2>Connection Test</h2>
+            <p>Test your connection to Supabase database</p>
+            <button onclick="runAllTests()" class="btn btn-primary" style="margin-top: 1rem;">
+                🔍 Run Connection Tests
+            </button>
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Setup Instructions -->
+        <div class="test-card">
+            <h2>⚙️ Setup Instructions</h2>
+            
+            <div class="step">
+                <h3>Step 1: Check Supabase Status</h3>
+                <p>Make sure your Supabase project is active:</p>
+                <ol>
+                    <li>Go to <a href="https://supabase.com/dashboard" target="_blank">Supabase Dashboard</a></li>
+                    <li>Verify your project is active (green status)</li>
+                    <li>Check Project Settings → API</li>
+                    <li>Confirm URL: <code>https://alioswydvwaatozppfot.supabase.co</code></li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3>Step 2: Setup Database</h3>
+                <p>Run the database schema in Supabase SQL Editor:</p>
+                <ol>
+                    <li>Open Supabase Dashboard → SQL Editor</li>
+                    <li>Click "New Query"</li>
+                    <li>Open <code>js/config.js</code> file in your text editor</li>
+                    <li>Copy ALL the SQL code from the comments (starts with <code>CREATE TABLE users</code>)</li>
+                    <li>Paste into SQL Editor and click "Run"</li>
+                    <li>Wait for "Success. No rows returned" message</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3>Step 3: Enable Email Authentication</h3>
+                <ol>
+                    <li>Go to Supabase Dashboard → Authentication → Providers</li>
+                    <li>Find "Email" provider and click it</li>
+                    <li>Enable it (toggle switch)</li>
+                    <li>Turn OFF "Confirm email" (for testing)</li>
+                    <li>Click "Save"</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3>Step 4: Configure CORS (If Still Having Issues)</h3>
+                <ol>
+                    <li>Go to Supabase Dashboard → Settings → API</li>
+                    <li>Scroll to "CORS" section</li>
+                    <li>Add these allowed origins:</li>
+                    <pre>http://localhost:*
+http://127.0.0.1:*
+http://localhost:8158
+file://*</pre>
+                    <li>Click "Save"</li>
+                </ol>
+            </div>
+
+            <div class="step">
+                <h3>Step 5: Test Registration</h3>
+                <p>Try creating a test account:</p>
+                <ol>
+                    <li>Click the button below to go to registration</li>
+                    <li>Fill in all details</li>
+                    <li>Select role: Entrepreneur</li>
+                    <li>Use a valid email (you can use fake: test@example.com)</li>
+                    <li>Password: at least 6 characters</li>
+                    <li>Click "Create Account"</li>
+                </ol>
+                <a href="auth.html?tab=register" class="btn btn-primary" style="margin-top: 1rem;">
+                    Go to Registration
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Test User Creation -->
+        <div class="test-card">
+            <h2>🚀 Quick Test - Create Admin User</h2>
+            <p>Create a test admin user directly (bypasses email confirmation):</p>
+            
+            <form id="quickTestForm" style="margin-top: 1rem;">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="testEmail" value="admin@test.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="testPassword" value="test123456" required>
+                </div>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="testName" value="Admin User" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Test Admin</button>
+            </form>
+            <div id="quickTestResult"></div>
+        </div>
+
+        <!-- Troubleshooting -->
+        <div class="test-card">
+            <h2>🔧 Troubleshooting</h2>
+            
+            <h3 style="color: #ef4444; margin-top: 1.5rem;">❌ "Failed to fetch" Error</h3>
+            <p><strong>Causes:</strong></p>
+            <ul>
+                <li>Supabase project is paused (happens after inactivity)</li>
+                <li>Internet connection issue</li>
+                <li>CORS not configured for localhost</li>
+                <li>Browser blocking third-party cookies</li>
+            </ul>
+            <p><strong>Solutions:</strong></p>
+            <ol>
+                <li>Go to Supabase Dashboard and check if project needs to be resumed</li>
+                <li>Check your internet connection</li>
+                <li>Try in a different browser (Chrome/Firefox)</li>
+                <li>Disable browser extensions temporarily</li>
+                <li>Configure CORS as shown in Step 4 above</li>
+            </ol>
+
+            <h3 style="color: #ef4444; margin-top: 1.5rem;">❌ "Table does not exist" Error</h3>
+            <p><strong>Solution:</strong> Run the database schema (Step 2 above)</p>
+
+            <h3 style="color: #ef4444; margin-top: 1.5rem;">❌ "Invalid login credentials" Error</h3>
+            <p><strong>Solutions:</strong></p>
+            <ul>
+                <li>Make sure you registered first</li>
+                <li>Check email/password are correct</li>
+                <li>Password must be at least 6 characters</li>
+                <li>If email confirmation is enabled, check your email</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="index.html" class="btn btn-outline">← Back to Home</a>
+            <a href="auth.html" class="btn btn-primary">Go to Login</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        // Run all tests
+        async function runAllTests() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = '<div class="test-result test-pending">⏳ Running tests...</div>';
+            
+            const results = [];
+            
+            // Test 1: Supabase library loaded
+            results.push({
+                name: 'Supabase Library',
+                status: typeof window.supabase !== 'undefined' ? 'pass' : 'fail',
+                message: typeof window.supabase !== 'undefined' 
+                    ? 'Supabase library loaded successfully' 
+                    : 'Supabase library not loaded. Check internet connection.'
+            });
+
+            // Test 2: Supabase client initialized
+            results.push({
+                name: 'Supabase Client',
+                status: typeof supabase !== 'undefined' && supabase ? 'pass' : 'fail',
+                message: typeof supabase !== 'undefined' && supabase
+                    ? 'Supabase client initialized'
+                    : 'Supabase client not initialized'
+            });
+
+            // Test 3: Database connection
+            try {
+                const { data, error } = await supabase.from('users').select('count').limit(1);
+                results.push({
+                    name: 'Database Connection',
+                    status: error ? 'fail' : 'pass',
+                    message: error ? `Database error: ${error.message}` : 'Connected to database successfully'
+                });
+            } catch (error) {
+                results.push({
+                    name: 'Database Connection',
+                    status: 'fail',
+                    message: `Connection failed: ${error.message}`
+                });
+            }
+
+            // Test 4: Authentication service
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                results.push({
+                    name: 'Authentication Service',
+                    status: 'pass',
+                    message: user ? `Logged in as: ${user.email}` : 'Not logged in (this is ok)'
+                });
+            } catch (error) {
+                results.push({
+                    name: 'Authentication Service',
+                    status: 'fail',
+                    message: `Auth error: ${error.message}`
+                });
+            }
+
+            // Display results
+            displayTestResults(results);
+        }
+
+        function displayTestResults(results) {
+            const resultsDiv = document.getElementById('testResults');
+            const allPassed = results.every(r => r.status === 'pass');
+            
+            let html = `
+                <div class="test-result ${allPassed ? 'test-success' : 'test-error'}" style="margin-top: 1rem;">
+                    <h3>${allPassed ? '✅ All Tests Passed!' : '❌ Some Tests Failed'}</h3>
+                </div>
+            `;
+            
+            results.forEach(result => {
+                const icon = result.status === 'pass' ? '✅' : '❌';
+                html += `
+                    <div style="padding: 0.75rem; margin-top: 0.5rem; background: ${result.status === 'pass' ? '#f0fdf4' : '#fef2f2'}; border-radius: 0.5rem;">
+                        <strong>${icon} ${result.name}</strong><br>
+                        <span style="color: #64748b;">${result.message}</span>
+                    </div>
+                `;
+            });
+            
+            if (!allPassed) {
+                html += `
+                    <div style="margin-top: 1rem; padding: 1rem; background: #fef3c7; border-radius: 0.5rem;">
+                        <strong>⚠️ Troubleshooting:</strong><br>
+                        1. Check Supabase project is active<br>
+                        2. Run database schema (Step 2 above)<br>
+                        3. Enable email authentication (Step 3 above)<br>
+                        4. Configure CORS (Step 4 above)<br>
+                        5. Try refreshing the page
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div style="margin-top: 1rem; padding: 1rem; background: #d1fae5; border-radius: 0.5rem;">
+                        <strong>✅ Everything looks good!</strong><br>
+                        You can now <a href="auth.html">register/login</a> and use the platform.
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Quick test user creation
+        document.getElementById('quickTestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            const name = document.getElementById('testName').value;
+            const resultDiv = document.getElementById('quickTestResult');
+            
+            resultDiv.innerHTML = '<div class="test-result test-pending">⏳ Creating test user...</div>';
+            
+            try {
+                // Sign up
+                const { data: authData, error: authError } = await supabase.auth.signUp({
+                    email: email,
+                    password: password
+                });
+                
+                if (authError) throw authError;
+                
+                // Create profile
+                const { error: profileError } = await supabase
+                    .from('users')
+                    .insert({
+                        id: authData.user.id,
+                        email: email,
+                        full_name: name,
+                        role: 'admin',
+                        verified: true,
+                        is_active: true
+                    });
+                
+                if (profileError) throw profileError;
+                
+                resultDiv.innerHTML = `
+                    <div class="test-result test-success">
+                        <strong>✅ Test admin created successfully!</strong><br>
+                        Email: ${email}<br>
+                        Password: ${password}<br>
+                        Role: Admin (verified)<br>
+                        <a href="auth.html" class="btn btn-primary" style="margin-top: 1rem;">Login Now</a>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                resultDiv.innerHTML = `
+                    <div class="test-result test-error">
+                        <strong>❌ Error creating user</strong><br>
+                        ${error.message}<br>
+                        <small>Check console (F12) for details</small>
+                    </div>
+                `;
+            }
+        });
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(runAllTests, 500);
+        });
+    </script>
+</body>
+</html>

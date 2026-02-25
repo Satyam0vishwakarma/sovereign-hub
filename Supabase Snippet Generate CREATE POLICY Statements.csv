@@ -1,0 +1,51 @@
+policy_definition
+null
+null
+"CREATE POLICY ""Entrepreneurs can delete own proposals"" ON public.proposals FOR DELETE TO public USING ((auth.uid() = user_id));"
+null
+"CREATE POLICY ""Investors can update own offers"" ON public.offers FOR UPDATE TO public USING ((auth.uid() = investor_id));"
+"CREATE POLICY ""Deal participants can update deals"" ON public.deals FOR UPDATE TO public USING (((entrepreneur_id = auth.uid()) OR (investor_id = auth.uid())));"
+"CREATE POLICY ""Anyone can view milestones for verified proposals"" ON public.milestones FOR SELECT TO public USING ((proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.verified = true))));"
+"CREATE POLICY ""Entrepreneurs can manage milestones"" ON public.milestones FOR ALL TO public USING ((proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.user_id = auth.uid()))));"
+"CREATE POLICY ""Public updates visible to all"" ON public.updates FOR SELECT TO public USING (((visibility = 'public'::text) OR (user_id = auth.uid()) OR ((visibility = 'investors_only'::text) AND (proposal_id IN ( SELECT offers.proposal_id
+   FROM offers
+  WHERE ((offers.investor_id = auth.uid()) AND (offers.status = 'accepted'::text)))))));"
+null
+"CREATE POLICY ""Users can view own chat rooms"" ON public.chat_rooms FOR SELECT TO public USING (((entrepreneur_id = auth.uid()) OR (investor_id = auth.uid())));"
+null
+"CREATE POLICY ""Users can update own chat rooms"" ON public.chat_rooms FOR UPDATE TO public USING (((entrepreneur_id = auth.uid()) OR (investor_id = auth.uid())));"
+"CREATE POLICY ""Users can view messages in their rooms"" ON public.messages FOR SELECT TO public USING ((room_id IN ( SELECT chat_rooms.id
+   FROM chat_rooms
+  WHERE ((chat_rooms.entrepreneur_id = auth.uid()) OR (chat_rooms.investor_id = auth.uid())))));"
+null
+"CREATE POLICY ""Anyone can view reviews"" ON public.reviews FOR SELECT TO public USING (true);"
+null
+"CREATE POLICY ""Users can view own notifications"" ON public.notifications FOR SELECT TO public USING ((user_id = auth.uid()));"
+"CREATE POLICY ""Users can update own notifications"" ON public.notifications FOR UPDATE TO public USING ((user_id = auth.uid()));"
+"CREATE POLICY ""Anyone can view success metrics"" ON public.success_metrics FOR SELECT TO public USING (true);"
+"CREATE POLICY ""Entrepreneurs can manage metrics"" ON public.success_metrics FOR ALL TO public USING ((proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.user_id = auth.uid()))));"
+"CREATE POLICY ""Users can view offers"" ON public.offers FOR SELECT TO public USING (((investor_id = auth.uid()) OR (proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.user_id = auth.uid()))) OR is_admin()));"
+"CREATE POLICY ""Users can view all users"" ON public.users FOR SELECT TO public USING (true);"
+"CREATE POLICY ""Users can update own profile"" ON public.users FOR UPDATE TO public USING (((auth.uid() = id) OR is_admin()));"
+"CREATE POLICY ""Anyone can view verified proposals"" ON public.proposals FOR SELECT TO public USING (((verified = true) OR (user_id = auth.uid()) OR is_admin()));"
+"CREATE POLICY ""Entrepreneurs can update own proposals"" ON public.proposals FOR UPDATE TO public USING (((auth.uid() = user_id) OR is_admin()));"
+"CREATE POLICY ""Admins can delete proposals"" ON public.proposals FOR DELETE TO public USING (is_admin());"
+null
+"CREATE POLICY ""Entrepreneurs can accept offers"" ON public.offers FOR UPDATE TO public USING ((proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.user_id = auth.uid()))));"
+"CREATE POLICY ""Participants can view offers"" ON public.offers FOR SELECT TO public USING (((investor_id = auth.uid()) OR (proposal_id IN ( SELECT proposals.id
+   FROM proposals
+  WHERE (proposals.user_id = auth.uid()))) OR is_admin()));"
+"CREATE POLICY ""Deal participants can view deals"" ON public.deals FOR SELECT TO public USING (((auth.uid() = entrepreneur_id) OR (auth.uid() = investor_id)));"
+"CREATE POLICY ""Admins can view all deals"" ON public.deals FOR SELECT TO public USING ((( SELECT users.role
+   FROM users
+  WHERE (users.id = auth.uid())) = 'admin'::text));"
